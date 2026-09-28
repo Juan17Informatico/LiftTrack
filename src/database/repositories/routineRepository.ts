@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { DataChangeListener } from '@/database/localData';
 
 import {
   mapRoutineExerciseRow,
@@ -16,7 +17,10 @@ import { nowUtc } from '@/utils/date';
 import { createId } from '@/utils/uuid';
 
 export class RoutineRepository {
-  constructor(private readonly db: SQLiteDatabase) {}
+  constructor(
+    private readonly db: SQLiteDatabase,
+    private readonly onChange?: DataChangeListener,
+  ) {}
 
   async list(): Promise<RoutineSummary[]> {
     try {
@@ -65,6 +69,7 @@ export class RoutineRepository {
         throw new Error('No se pudo crear la rutina');
       }
 
+      await this.onChange?.();
       return routine;
     } catch (error) {
       console.error('RoutineRepository.create failed', error);
@@ -91,6 +96,7 @@ export class RoutineRepository {
         throw new Error('Rutina no encontrada despues de actualizar');
       }
 
+      await this.onChange?.();
       return routine;
     } catch (error) {
       console.error('RoutineRepository.update failed', error);
@@ -206,6 +212,7 @@ export class RoutineRepository {
         throw new Error('No se pudo agregar el ejercicio a la rutina');
       }
 
+      await this.onChange?.();
       return created;
     } catch (error) {
       console.error('RoutineRepository.addExercise failed', error);
@@ -238,6 +245,7 @@ export class RoutineRepository {
           row.routine_id,
         );
       });
+      await this.onChange?.();
     } catch (error) {
       console.error('RoutineRepository.removeExercise failed', error);
       throw error;
@@ -295,6 +303,7 @@ export class RoutineRepository {
           current.routine_id,
         );
       });
+      await this.onChange?.();
     } catch (error) {
       console.error('RoutineRepository.moveExercise failed', error);
       throw error;

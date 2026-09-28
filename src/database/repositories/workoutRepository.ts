@@ -1,4 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { DataChangeListener } from '@/database/localData';
 
 import {
   mapWorkoutExerciseRow,
@@ -32,7 +33,10 @@ export interface UpdateWorkoutSetInput {
 }
 
 export class WorkoutRepository {
-  constructor(private readonly db: SQLiteDatabase) {}
+  constructor(
+    private readonly db: SQLiteDatabase,
+    private readonly onChange?: DataChangeListener,
+  ) {}
 
   async findActive(): Promise<WorkoutSessionDetail | null> {
     try {
@@ -203,6 +207,7 @@ export class WorkoutRepository {
         throw new Error('No se pudo crear el entrenamiento');
       }
 
+      await this.onChange?.();
       return created;
     } catch (error) {
       console.error('WorkoutRepository.startFromRoutine failed', error);
@@ -232,6 +237,7 @@ export class WorkoutRepository {
         throw new Error('No se pudo crear el entrenamiento');
       }
 
+      await this.onChange?.();
       return created;
     } catch (error) {
       console.error('WorkoutRepository.startEmpty failed', error);
@@ -287,6 +293,7 @@ export class WorkoutRepository {
         throw new Error('No se pudo crear el ejercicio del entrenamiento');
       }
 
+      await this.onChange?.();
       return created;
     } catch (error) {
       console.error('WorkoutRepository.addExerciseToSession failed', error);
@@ -339,6 +346,7 @@ export class WorkoutRepository {
         throw new Error('No se pudo crear la serie');
       }
 
+      await this.onChange?.();
       return set;
     } catch (error) {
       console.error('WorkoutRepository.addSet failed', error);
@@ -369,6 +377,7 @@ export class WorkoutRepository {
         throw new Error('Serie no encontrada despues de actualizar');
       }
 
+      await this.onChange?.();
       return set;
     } catch (error) {
       console.error('WorkoutRepository.updateSet failed', error);
@@ -385,6 +394,7 @@ export class WorkoutRepository {
         timestamp,
         id,
       );
+      await this.onChange?.();
     } catch (error) {
       console.error('WorkoutRepository.deleteSet failed', error);
       throw error;
@@ -412,6 +422,7 @@ export class WorkoutRepository {
         throw new Error('Entrenamiento no encontrado despues de finalizar');
       }
 
+      await this.onChange?.();
       return finished;
     } catch (error) {
       console.error('WorkoutRepository.finishSession failed', error);

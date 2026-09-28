@@ -2,12 +2,12 @@ import { localKeys } from '@/database/localData';
 import { useLocalQuery } from '@/hooks/useLocalQuery';
 import { useRepositories } from '@/hooks/useRepositories';
 
-export function useWorkoutDetail(id: string | undefined) {
+export function useActiveWorkout() {
   const { workouts: repository } = useRepositories();
   const { data, ...state } = useLocalQuery(
-    localKeys.workout(id),
-    () => (id ? repository.findById(id) : Promise.resolve(null)),
-    !!id,
+    localKeys.activeWorkout,
+    () => repository.findActive(),
+    true,
   );
   return { session: data ?? null, ...state };
 }

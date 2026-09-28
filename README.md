@@ -21,7 +21,7 @@ LiftTrack is a local-first mobile app for tracking gym workouts. The MVP focuses
 - Expo Router for file-based navigation.
 - Expo SQLite as the local source of truth.
 - Zustand for small global UI state.
-- React Query provider prepared for future server state.
+- React Query shares local SQLite results across screens and refreshes affected queries after writes.
 - React Hook Form and Zod for validated forms.
 - expo-sqlite/kv-store for preferences.
 - expo-secure-store for future sensitive data.
@@ -46,6 +46,15 @@ src/
 ```
 
 Screens call feature hooks and repositories. SQLite queries stay inside repository classes.
+
+Local query keys and invalidation live in `src/database/localData.ts`. Repositories
+created by `useRepositories` publish changes after successful writes and committed
+transactions. Routine changes refresh routine views and workout views that join
+routine names; workout changes refresh sessions, history, and previous performance.
+Mounted views retain their data during these background reads, so mutations do not
+replace the screen with a loader or reset in-progress forms. Local queries use
+`networkMode: 'always'` so this also works offline. New write methods must notify
+their repository's `onChange` listener after persistence succeeds.
 
 ## Local-First Approach
 
@@ -127,8 +136,13 @@ only updates the images rendered inside the app.
 ```bash
 npm run typecheck
 npm run lint
+npm run test:local-data
 npm run format
 ```
+
+`test:local-data` requires Node 22.13+ for the built-in SQLite test database. It
+exercises the production repository SQL, cache notifications, offline updates,
+rollbacks, and stale-read races without a device or additional test dependencies.
 
 ## Architecture Decisions
 

@@ -23,7 +23,7 @@ import { translateMuscleGroup } from '@/utils/exerciseMetadata';
 
 export default function RoutineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { routine, loading, error, reload } = useRoutineDetail(id);
+  const { routine, loading, error } = useRoutineDetail(id);
   const { exercises } = useExerciseCatalog();
   const { routines, workouts } = useRepositories();
   const setActiveWorkoutId = useActiveWorkoutStore((state) => state.setActiveWorkoutId);
@@ -40,14 +40,17 @@ export default function RoutineDetailScreen() {
     },
   });
 
+  const savedName = routine?.name;
+  const savedDescription = routine?.description;
+
   useEffect(() => {
-    if (routine) {
+    if (savedName !== undefined) {
       reset({
-        name: routine.name,
-        description: routine.description ?? '',
+        name: savedName,
+        description: savedDescription ?? '',
       });
     }
-  }, [reset, routine]);
+  }, [id, reset, savedDescription, savedName]);
 
   async function addExercise(exerciseId: string) {
     if (!routine) {
@@ -56,7 +59,6 @@ export default function RoutineDetailScreen() {
 
     try {
       await routines.addExercise(routine.id, { exerciseId });
-      await reload();
     } catch (caughtError) {
       Alert.alert('No se pudo agregar el ejercicio', getErrorMessage(caughtError));
     }
@@ -65,7 +67,6 @@ export default function RoutineDetailScreen() {
   async function removeExercise(routineExerciseId: string) {
     try {
       await routines.removeExercise(routineExerciseId);
-      await reload();
     } catch (caughtError) {
       Alert.alert('No se pudo quitar el ejercicio', getErrorMessage(caughtError));
     }
@@ -74,7 +75,6 @@ export default function RoutineDetailScreen() {
   async function moveExercise(routineExerciseId: string, direction: 'up' | 'down') {
     try {
       await routines.moveExercise(routineExerciseId, direction);
-      await reload();
     } catch (caughtError) {
       Alert.alert('No se pudo mover el ejercicio', getErrorMessage(caughtError));
     }
@@ -100,8 +100,8 @@ export default function RoutineDetailScreen() {
     }
 
     try {
-      await routines.update(routine.id, input);
-      await reload();
+      const updated = await routines.update(routine.id, input);
+      reset({ name: updated.name, description: updated.description ?? '' });
     } catch (caughtError) {
       Alert.alert('No se pudo guardar la rutina', getErrorMessage(caughtError));
     }

@@ -1,38 +1,14 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing } from '@/constants/theme';
-import { useRepositories } from '@/hooks/useRepositories';
-import type { PreviousExerciseSet } from '@/types/domain';
+import { usePreviousPerformance } from '@/features/exercises/hooks/usePreviousPerformance';
 
 interface PreviousPerformanceProps {
   exerciseId: string;
 }
 
 export function PreviousPerformance({ exerciseId }: PreviousPerformanceProps) {
-  const { exercises } = useRepositories();
-  const [sets, setSets] = useState<PreviousExerciseSet[]>([]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      try {
-        const result = await exercises.findLastPerformance(exerciseId);
-        if (mounted) {
-          setSets(result);
-        }
-      } catch (error) {
-        console.error('No se pudo cargar el rendimiento anterior', error);
-      }
-    }
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, [exerciseId, exercises]);
+  const { sets } = usePreviousPerformance(exerciseId);
 
   if (sets.length === 0) {
     return <Text style={styles.muted}>Anterior: aun no hay series completadas</Text>;
