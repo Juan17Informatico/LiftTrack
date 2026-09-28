@@ -11,7 +11,7 @@ LiftTrack is a local-first mobile app for tracking gym workouts. The MVP focuses
 - Simple rest timer powered by Zustand UI state.
 - Workout history with completed exercises and sets.
 - Previous performance lookup per exercise.
-- Local preferences with MMKV.
+- Local preferences persisted with Expo SQLite, including in Expo Go.
 - Spanish UI by default, while exercise names remain mostly in English.
 - SecureStore wrapper ready for future authentication tokens.
 
@@ -23,7 +23,7 @@ LiftTrack is a local-first mobile app for tracking gym workouts. The MVP focuses
 - Zustand for small global UI state.
 - React Query provider prepared for future server state.
 - React Hook Form and Zod for validated forms.
-- react-native-mmkv for preferences.
+- expo-sqlite/kv-store for preferences.
 - expo-secure-store for future sensitive data.
 - lucide-react-native for icons.
 
@@ -80,7 +80,47 @@ npm run ios
 npm run web
 ```
 
-Expo Go can run the MVP with the in-memory preferences fallback. Because `react-native-mmkv` is a native dependency, use a development build for full native preference persistence.
+### Expo Go on Android (SDK 54)
+
+Use an Expo Go Android client that supports SDK 54. The installed `expo` package
+is resolved within `~54.0.0`; its patch number does not need to match the Expo Go
+app version (for example, 54.0.6).
+
+```bash
+npm run start:clear
+```
+
+Keep the terminal running, connect the phone and computer to the same Wi-Fi,
+and scan the new QR code from Expo Go. The start scripts explicitly target Expo Go.
+If the phone cannot reach Metro over Wi-Fi, stop that server and try:
+
+```bash
+npm run start:tunnel
+```
+
+Expo CLI may ask to install its tunnel helper the first time. If Expo Go still
+shows "Something went wrong", open "View error log" and copy the error; that
+distinguishes a connection failure from a JavaScript or native version error.
+Validate the project with `npx expo install --check`, `npx expo-doctor`,
+`npm run lint`, and `npm run typecheck`.
+
+Preferences now use `expo-sqlite/kv-store`, which is included in Expo Go, instead
+of attempting to load MMKV and falling back to volatile memory. Preferences from
+an older MMKV development build are not migrated; training data stays in the
+existing SQLite database.
+
+### Brand assets
+
+- `assets/logo-limpio.png`: app icon, Android adaptive icon, and favicon (opaque artwork).
+- `assets/logo-no-bg.png`: transparent home header logo.
+- `assets/logo-titulo-no-bg.png`: transparent native splash, database loading, and profile logo.
+
+The in-app logos use the supplied transparent PNGs without modifying their artwork.
+The profile logo is centered at 180 points and scales down on narrow screens.
+Expo Go displays the app icon during
+its native launch; the configured splash must be checked in a standalone build.
+Rebuild the native app to apply launcher icon and splash changes; reloading Metro
+only updates the images rendered inside the app.
 
 ## Scripts
 

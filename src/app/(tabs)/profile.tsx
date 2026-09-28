@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { colors, spacing } from '@/constants/theme';
@@ -85,17 +86,27 @@ export default function ProfileScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.title}>LiftTrack MVP</Text>
-        <Text style={styles.muted}>
-          Datos local-first, persistencia SQLite, capa de repositories y UUIDs preparados para
-          sincronizacion futura con Supabase.
-        </Text>
+        <View style={styles.brandSection}>
+          <BrandLogo variant="title" size={180} trimVerticalSpace />
+          <Text style={styles.title}>LiftTrack MVP</Text>
+          <Text style={[styles.muted, styles.brandDescription]}>
+            Datos local-first, persistencia SQLite, capa de repositories y UUIDs preparados para
+            sincronizacion futura con Supabase.
+          </Text>
+        </View>
       </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  brandSection: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandDescription: {
+    textAlign: 'center',
+  },
   title: {
     color: colors.text,
     fontSize: 17,

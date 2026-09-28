@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { ArrowRight, Dumbbell, Play, Plus } from 'lucide-react-native';
+import { ArrowRight, Play, Plus } from 'lucide-react-native';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
@@ -52,7 +53,7 @@ export default function HomeScreen() {
     <Screen
       title="LiftTrack"
       subtitle="Registro de entrenamientos offline-first para sesiones enfocadas."
-      right={<Dumbbell color={colors.primary} size={30} />}
+      right={<BrandLogo />}
     >
       <Card>
         <Text style={styles.sectionTitle}>

@@ -4,7 +4,7 @@
     "slug": "lifttrack",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-limpio.png",
     "scheme": "lifttrack",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -12,21 +12,28 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#03090B",
+        "foregroundImage": "./assets/logo-limpio.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.juancagenuine.lifttrack"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logo-limpio.png"
     },
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#03090B",
+          "image": "./assets/logo-titulo-no-bg.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

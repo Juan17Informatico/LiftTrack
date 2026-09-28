@@ -4,6 +4,7 @@ import { PropsWithChildren, useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { LoadingState } from '@/components/LoadingState';
+import { BrandLogo } from '@/components/BrandLogo';
 import { colors, spacing } from '@/constants/theme';
 import { DatabaseBootstrap } from '@/database/DatabaseBootstrap';
 import { DATABASE_NAME, initializeDatabase } from '@/database/database';
@@ -38,6 +39,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     <View style={styles.root}>
       {status.state === 'loading' ? (
         <View style={styles.overlay}>
+          <BrandLogo variant="title" />
           <LoadingState label="Preparando LiftTrack" />
         </View>
       ) : null}
