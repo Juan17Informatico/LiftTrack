@@ -251,6 +251,14 @@ export class WorkoutRepository {
       const timestamp = nowUtc();
 
       await withWriteTransaction(this.db, async (transaction) => {
+        const available = await transaction.getFirstAsync<{ id: string }>(
+          `SELECT exercises.id FROM exercises, workout_sessions
+           WHERE exercises.id = ? AND workout_sessions.id = ?
+           AND exercises.deleted_at IS NULL AND workout_sessions.deleted_at IS NULL
+           AND workout_sessions.finished_at IS NULL`,
+          exerciseId, sessionId,
+        );
+        if (!available) throw new Error('El ejercicio o el entrenamiento ya no están disponibles.');
         const sortRow = await transaction.getFirstAsync<{ next_sort_order: number }>(
           `
             SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order
@@ -428,6 +436,41 @@ export class WorkoutRepository {
       console.error('WorkoutRepository.finishSession failed', error);
       throw error;
     }
+  }
+
+  async deleteSession(id: string): Promise<void> {
+    const timestamp = nowUtc();
+    await withWriteTransaction(this.db, async (transaction) => {
+      await transaction.runAsync(
+        `UPDATE workout_sets SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL
+         AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE workout_session_id = ?)`,
+        timestamp, timestamp, id,
+      );
+      await transaction.runAsync(
+        'UPDATE workout_exercises SET deleted_at = ?, updated_at = ? WHERE workout_session_id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+      await transaction.runAsync(
+        'UPDATE workout_sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+    });
+    await this.onChange?.();
+  }
+
+  async removeExercise(id: string): Promise<void> {
+    const timestamp = nowUtc();
+    await withWriteTransaction(this.db, async (transaction) => {
+      await transaction.runAsync(
+        'UPDATE workout_sets SET deleted_at = ?, updated_at = ? WHERE workout_exercise_id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+      await transaction.runAsync(
+        'UPDATE workout_exercises SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+    });
+    await this.onChange?.();
   }
 
   private async listWorkoutExercises(sessionId: string): Promise<WorkoutExercise[]> {

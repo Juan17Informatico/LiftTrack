@@ -1,8 +1,11 @@
+import { dialogs } from '@/store/dialogStore';
 import { router } from 'expo-router';
-import { Plus, TimerReset } from 'lucide-react-native';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Plus, TimerReset, Trash2 } from 'lucide-react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
+import { IconButton } from '@/components/IconButton';
+import { useRepositories } from '@/hooks/useRepositories';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
@@ -22,49 +25,41 @@ export default function ActiveWorkoutScreen() {
     useActiveWorkoutSession();
   const { exercises } = useExerciseCatalog();
   const timer = useRestTimer();
+  const { workouts } = useRepositories();
 
   async function safeAddSet(workoutExerciseId: string) {
     try {
       await addSet(workoutExerciseId);
     } catch (caughtError) {
-      Alert.alert('No se pudo agregar la serie', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo agregar la serie', getErrorMessage(caughtError));
     }
   }
 
   async function safeDeleteSet(setId: string) {
-    try {
-      await deleteSet(setId);
-    } catch (caughtError) {
-      Alert.alert('No se pudo eliminar la serie', getErrorMessage(caughtError));
-    }
+    dialogs.confirm({ title: '¿Eliminar esta serie?', message: 'Se quitarán el peso y las repeticiones de esta serie.', confirmLabel: 'Eliminar serie', onConfirm: () => deleteSet(setId) });
   }
 
   async function safeAddExercise(exerciseId: string) {
     try {
       await addExercise(exerciseId);
     } catch (caughtError) {
-      Alert.alert('No se pudo agregar el ejercicio', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo agregar el ejercicio', getErrorMessage(caughtError));
     }
   }
 
   function confirmFinish() {
-    Alert.alert('Finalizar entrenamiento?', 'La sesion pasara al historial.', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Finalizar',
-        style: 'default',
-        onPress: async () => {
-          try {
-            const finished = await finish();
-            if (finished) {
-              router.replace({ pathname: '/workout/[id]', params: { id: finished.id } });
-            }
-          } catch (caughtError) {
-            Alert.alert('No se pudo finalizar el entrenamiento', getErrorMessage(caughtError));
-          }
-        },
+    dialogs.confirm({
+      title: 'Un entrenamiento más. Un paso adelante.',
+      message: 'Guarda esta sesión en tu historial para consultar tus series y seguir tu progreso.',
+      tone: 'success', confirmLabel: 'Finalizar y guardar',
+      onConfirm: async () => {
+        const finished = await finish();
+        if (finished) {
+          timer.cancel();
+          router.replace({ pathname: '/workout/[id]', params: { id: finished.id } });
+        }
       },
-    ]);
+    });
   }
 
   if (loading) {
@@ -151,6 +146,8 @@ export default function ActiveWorkoutScreen() {
                   label="Serie"
                   onPress={() => safeAddSet(workoutExercise.id)}
                 />
+                <IconButton accessibilityLabel={`Quitar ${workoutExercise.exercise?.name ?? 'ejercicio'}`} icon={<Trash2 size={18} color={colors.danger} />}
+                  onPress={() => dialogs.confirm({ title: '¿Quitar este ejercicio?', message: 'Se quitará de este entrenamiento junto con sus series. Permanecerá en el catálogo.', confirmLabel: 'Quitar ejercicio', onConfirm: () => workouts.removeExercise(workoutExercise.id) })} />
               </View>
               <PreviousPerformance exerciseId={workoutExercise.exerciseId} />
               {workoutExercise.sets.length === 0 ? (
@@ -166,7 +163,7 @@ export default function ActiveWorkoutScreen() {
                   </View>
                   {workoutExercise.sets.map((set) => (
                     <WorkoutSetRow
-                      key={`${set.id}-${set.updatedAt}`}
+                      key={set.id}
                       set={set}
                       onDelete={safeDeleteSet}
                       onUpdate={updateSet}
@@ -202,6 +199,12 @@ export default function ActiveWorkoutScreen() {
       {availableExercises.length === 0 ? (
         <Text style={styles.muted}>Todos los ejercicios del catalogo ya fueron agregados.</Text>
       ) : null}
+      <AppButton label="Crear un ejercicio nuevo" variant="secondary" icon={<Plus size={18} color={colors.text} />}
+        onPress={() => router.push({ pathname: '/exercise/create', params: { returnTo: 'previous' } })} />
+      <AppButton label="Descartar entrenamiento" variant="ghost" icon={<Trash2 size={18} color={colors.danger} />}
+        onPress={() => dialogs.confirm({ title: '¿Descartar esta sesión?', message: 'Se eliminará el entrenamiento en curso y sus series. No aparecerá en tu historial.', confirmLabel: 'Descartar entrenamiento',
+          onConfirm: async () => { await workouts.deleteSession(session.id); timer.cancel(); router.replace('/'); },
+        })} />
     </Screen>
   );
 }

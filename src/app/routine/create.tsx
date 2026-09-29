@@ -1,8 +1,9 @@
+import { dialogs } from '@/store/dialogStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
 import { Save } from 'lucide-react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { Card } from '@/components/Card';
@@ -32,7 +33,7 @@ export default function CreateRoutineScreen() {
       const routine = await routines.create(input);
       router.replace({ pathname: '/routine/[id]', params: { id: routine.id } });
     } catch (error) {
-      Alert.alert('No se pudo crear la rutina', getErrorMessage(error));
+      dialogs.alert('No se pudo crear la rutina', getErrorMessage(error));
     }
   });
 

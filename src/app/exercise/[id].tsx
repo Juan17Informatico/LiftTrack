@@ -1,7 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Pencil, Trash2 } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
+import { AppButton } from '@/components/AppButton';
+import { useRepositories } from '@/hooks/useRepositories';
+import { dialogs } from '@/store/dialogStore';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
@@ -17,6 +21,7 @@ import {
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { exercise, previousSets, loading, error } = useExerciseDetail(id);
+  const { exercises } = useRepositories();
 
   if (loading) {
     return (
@@ -36,6 +41,10 @@ export default function ExerciseDetailScreen() {
 
   return (
     <Screen title={exercise.name} subtitle={translateMuscleGroup(exercise.muscleGroup)}>
+      {exercise.deletedAt ? <Text style={styles.muted}>Retirado del catálogo. Sus registros de entrenamiento se conservan.</Text> : (
+        <AppButton label="Editar ejercicio" variant="secondary" icon={<Pencil size={18} color={colors.text} />}
+          onPress={() => router.push({ pathname: '/exercise/edit', params: { id } })} />
+      )}
       <Card>
         <Text style={styles.title}>Detalles</Text>
         <Text style={styles.muted}>Equipo: {translateEquipment(exercise.equipment)}</Text>
@@ -63,6 +72,13 @@ export default function ExerciseDetailScreen() {
           </View>
         )}
       </Card>
+      {!exercise.deletedAt ? <AppButton label="Eliminar del catálogo" variant="ghost" icon={<Trash2 size={18} color={colors.danger} />}
+        onPress={() => dialogs.confirm({
+          title: '¿Eliminar este ejercicio?',
+          message: `“${exercise.name}” dejará de aparecer en el catálogo y en tus rutinas. Los entrenamientos ya registrados se conservan.`,
+          confirmLabel: 'Eliminar ejercicio',
+          onConfirm: async () => { await exercises.delete(id); router.replace('/exercises'); },
+        })} /> : null}
     </Screen>
   );
 }

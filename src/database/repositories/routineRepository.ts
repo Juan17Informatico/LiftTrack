@@ -46,6 +46,21 @@ export class RoutineRepository {
     }
   }
 
+  async delete(id: string): Promise<void> {
+    const timestamp = nowUtc();
+    await withWriteTransaction(this.db, async (transaction) => {
+      await transaction.runAsync(
+        'UPDATE routine_exercises SET deleted_at = ?, updated_at = ? WHERE routine_id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+      await transaction.runAsync(
+        'UPDATE routines SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+    });
+    await this.onChange?.();
+  }
+
   async create(input: RoutineFormInput): Promise<Routine> {
     try {
       const id = createId();
@@ -166,6 +181,13 @@ export class RoutineRepository {
       const id = createId();
 
       await withWriteTransaction(this.db, async (transaction) => {
+        const available = await transaction.getFirstAsync<{ id: string }>(
+          `SELECT exercises.id FROM exercises, routines
+           WHERE exercises.id = ? AND routines.id = ?
+           AND exercises.deleted_at IS NULL AND routines.deleted_at IS NULL`,
+          input.exerciseId, routineId,
+        );
+        if (!available) throw new Error('La rutina o el ejercicio ya no están disponibles.');
         const sortRow = await transaction.getFirstAsync<{ next_sort_order: number }>(
           `
             SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order

@@ -15,6 +15,7 @@ export const localKeys = {
   history: ['local', 'workouts', 'history'] as const,
   workout: (id: string | undefined) => ['local', 'workouts', 'detail', id] as const,
   exercises: (search = '') => ['local', 'exercises', 'list', search.trim()] as const,
+  exerciseCatalog: ['local', 'exercises'] as const,
   exercise: (id: string | undefined) => ['local', 'exercises', 'detail', id] as const,
   performances: ['local', 'performances'] as const,
   performance: (id: string | undefined) => ['local', 'performances', id] as const,
@@ -24,11 +25,13 @@ export type DataChangeListener = () => Promise<void>;
 
 export async function refreshLocalData(
   client: QueryClient,
-  domain: 'routines' | 'workouts',
+  domain: 'routines' | 'workouts' | 'exercises',
 ): Promise<void> {
   // Workout queries also join routine names; a rename must update those views.
   const keys =
-    domain === 'routines'
+    domain === 'exercises'
+      ? [localKeys.exerciseCatalog, localKeys.routines, localKeys.workouts, localKeys.performances]
+      : domain === 'routines'
       ? [localKeys.routines, localKeys.workouts]
       : [localKeys.workouts, localKeys.performances];
 

@@ -6,6 +6,8 @@ import { IconButton } from '@/components/IconButton';
 import { colors, radius, spacing } from '@/constants/theme';
 import type { UpdateWorkoutSetInput } from '@/database/repositories/workoutRepository';
 import type { WorkoutSet } from '@/types/domain';
+import { dialogs } from '@/store/dialogStore';
+import { getErrorMessage } from '@/utils/errors';
 
 interface WorkoutSetRowProps {
   set: WorkoutSet;
@@ -23,6 +25,8 @@ export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
     setSaving(true);
     try {
       await onUpdate(set.id, input);
+    } catch (error) {
+      dialogs.alert('No se pudo guardar la serie', getErrorMessage(error));
     } finally {
       setSaving(false);
     }

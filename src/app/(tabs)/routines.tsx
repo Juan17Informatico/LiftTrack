@@ -1,6 +1,7 @@
+import { dialogs } from '@/store/dialogStore';
 import { router } from 'expo-router';
 import { ArrowRight, Play, Plus } from 'lucide-react-native';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { Card } from '@/components/Card';
@@ -25,7 +26,7 @@ export default function RoutinesScreen() {
       setActiveWorkoutId(session.id);
       router.push('/workout/active');
     } catch (caughtError) {
-      Alert.alert('No se pudo iniciar la rutina', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo iniciar la rutina', getErrorMessage(caughtError));
     }
   }
 

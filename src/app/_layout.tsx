@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 import { DatabaseProvider } from '@/database/DatabaseProvider';
+import { AppDialog } from '@/components/AppDialog';
 
 const queryClient = new QueryClient();
 
@@ -31,8 +32,11 @@ export default function RootLayout() {
               <Stack.Screen name="workout/active" options={{ title: 'Entrenamiento activo' }} />
               <Stack.Screen name="workout/[id]" options={{ title: 'Entrenamiento' }} />
               <Stack.Screen name="exercise/[id]" options={{ title: 'Ejercicio' }} />
+              <Stack.Screen name="exercise/create" options={{ title: 'Nuevo ejercicio' }} />
+              <Stack.Screen name="exercise/edit" options={{ title: 'Editar ejercicio' }} />
             </Stack>
           </DatabaseProvider>
+          <AppDialog />
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

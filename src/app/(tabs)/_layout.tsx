@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Clock3, Dumbbell, History, Home, User } from 'lucide-react-native';
+import { BookOpen, Clock3, Dumbbell, History, Home, User } from 'lucide-react-native';
 import type { ColorValue } from 'react-native';
 import type { ReactNode } from 'react';
 
@@ -31,6 +31,7 @@ export default function TabLayout() {
         name="history"
         options={{ title: 'Historial', tabBarIcon: icon(History, 'Historial') }}
       />
+      <Tabs.Screen name="exercises" options={{ title: 'Ejercicios', tabBarIcon: icon(BookOpen, 'Ejercicios') }} />
       <Tabs.Screen name="profile" options={{ title: 'Perfil', tabBarIcon: icon(User, 'Perfil') }} />
     </Tabs>
   );

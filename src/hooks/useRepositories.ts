@@ -13,7 +13,7 @@ export function useRepositories() {
 
   return useMemo(
     () => ({
-      exercises: new ExerciseRepository(db),
+      exercises: new ExerciseRepository(db, () => refreshLocalData(queryClient, 'exercises')),
       routines: new RoutineRepository(db, () => refreshLocalData(queryClient, 'routines')),
       workouts: new WorkoutRepository(db, () => refreshLocalData(queryClient, 'workouts')),
     }),

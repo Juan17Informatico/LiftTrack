@@ -1,7 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Trash2 } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/EmptyState';
+import { AppButton } from '@/components/AppButton';
+import { useRepositories } from '@/hooks/useRepositories';
+import { dialogs } from '@/store/dialogStore';
 import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
 import { colors, spacing } from '@/constants/theme';
@@ -12,6 +16,7 @@ import { formatDateTime, formatDuration } from '@/utils/date';
 export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, loading, error } = useWorkoutDetail(id);
+  const { workouts } = useRepositories();
 
   if (loading) {
     return (
@@ -36,6 +41,13 @@ export default function WorkoutDetailScreen() {
         <Text style={styles.meta}>{session.exercises.length} ejercicios</Text>
       </View>
       <WorkoutSessionSummary session={session} />
+      <AppButton label="Eliminar entrenamiento" variant="ghost" icon={<Trash2 size={18} color={colors.danger} />}
+        onPress={() => dialogs.confirm({
+          title: '¿Eliminar este entrenamiento?',
+          message: `Se quitarán “${session.name}” y sus series del historial y del rendimiento anterior. Esta acción no se puede deshacer desde la app.`,
+          confirmLabel: 'Eliminar entrenamiento',
+          onConfirm: async () => { await workouts.deleteSession(id); router.replace('/history'); },
+        })} />
     </Screen>
   );
 }

@@ -83,7 +83,7 @@ function setup(t) {
   };
   const routines = new RoutineRepository(db, changed('routines'));
   const workouts = new WorkoutRepository(db, changed('workouts'));
-  const exercises = new ExerciseRepository(db);
+  const exercises = new ExerciseRepository(db, changed('exercises'));
   const subscriptions = [];
   async function observe(queryKey, queryFn) {
     const options = { ...localQueryOptions, queryKey, queryFn };
@@ -166,7 +166,7 @@ test('a failed write rolls back without publishing a cache change', async (t) =>
   const { routines, notifications } = setup(t);
   const routine = await routines.create({ name: 'Rutina' });
   const count = notifications.length;
-  await assert.rejects(routines.addExercise(routine.id, { exerciseId: 'missing' }), /FOREIGN KEY/);
+  await assert.rejects(routines.addExercise(routine.id, { exerciseId: 'missing' }), /disponibles/);
   assert.equal(notifications.length, count);
   assert.equal((await routines.findWithExercises(routine.id)).exercises.length, 0);
 });
@@ -208,4 +208,99 @@ test('a cached screen sees writes made while it was unmounted', async (t) => {
   assert.equal(client.getQueryState(localKeys.routineList).isInvalidated, true);
   const reopened = await observe(localKeys.routineList, () => routines.list());
   assert.equal(reopened.data()[0].name, 'Creada desde otra pantalla');
+});
+
+test('custom exercises can be created, edited and removed while recorded workouts survive', async (t) => {
+  const { exercises, routines, workouts, observe } = setup(t);
+  onlineManager.setOnline(false);
+  const catalog = await observe(localKeys.exercises(), () => exercises.findAll());
+  const custom = await exercises.create({ name: 'Sentadilla pausa', muscleGroup: 'Quadriceps', equipment: 'Barra', instructions: 'Pausa dos segundos.' });
+  assert.equal(catalog.data().length, 3);
+  const routine = await routines.create({ name: 'Piernas' });
+  await routines.addExercise(routine.id, { exerciseId: custom.id });
+  const plan = await observe(localKeys.routine(routine.id), () => routines.findWithExercises(routine.id));
+  const plans = await observe(localKeys.routineList, () => routines.list());
+  const session = await workouts.startFromRoutine(routine.id);
+  const detail = await observe(localKeys.workout(session.id), () => workouts.findById(session.id));
+  const set = await workouts.addSet(detail.data().exercises[0].id);
+  await workouts.updateSet(set.id, { weight: 60, repetitions: 8, completed: true });
+  await workouts.finishSession(session.id);
+  await exercises.update(custom.id, { name: 'Sentadilla pausada', muscleGroup: 'Quadriceps', equipment: 'Barra', instructions: '' });
+  assert.equal(plan.data().exercises[0].exercise.name, 'Sentadilla pausada');
+  assert.equal(detail.data().exercises[0].exercise.name, 'Sentadilla pausada');
+  await exercises.delete(custom.id);
+  assert.equal(catalog.data().length, 2);
+  assert.equal(plan.data().exercises.length, 0);
+  assert.equal(plans.data()[0].exerciseCount, 0);
+  assert.equal(await exercises.findById(custom.id), null);
+  assert.ok((await exercises.findById(custom.id, true)).deletedAt);
+  assert.equal(detail.data().exercises[0].sets[0].weight, 60);
+  assert.equal((await exercises.findLastPerformance(custom.id))[0].weight, 60);
+  await assert.rejects(exercises.update(custom.id, { name: 'Borrado', muscleGroup: 'Core', equipment: '', instructions: '' }), /disponible/);
+  t.mock.method(console, 'error', () => {});
+  await assert.rejects(routines.addExercise(routine.id, { exerciseId: custom.id }), /disponibles/);
+});
+
+test('removing a built-in exercise and a routine preserves completed sessions', async (t) => {
+  const { exercises, routines, workouts, observe } = setup(t);
+  const routine = await routines.create({ name: 'Base' });
+  await routines.addExercise(routine.id, { exerciseId: 'squat' });
+  const session = await workouts.startFromRoutine(routine.id);
+  await workouts.finishSession(session.id);
+  const plans = await observe(localKeys.routineList, () => routines.list());
+  await exercises.delete('squat');
+  await routines.delete(routine.id);
+  assert.equal(plans.data().length, 0);
+  assert.equal(await routines.findById(routine.id), null);
+  assert.equal((await workouts.findById(session.id)).exercises[0].exercise.name, 'squat');
+  assert.equal((await workouts.listHistory()).length, 1);
+  assert.equal((await exercises.findAll()).length, 1);
+  t.mock.method(console, 'error', () => {});
+  await assert.rejects(workouts.startFromRoutine(routine.id), /no encontrada/);
+});
+
+test('session and workout-exercise deletion update history, active data and previous performance', async (t) => {
+  const { exercises, workouts, observe } = setup(t);
+  const active = await observe(localKeys.activeWorkout, () => workouts.findActive());
+  const history = await observe(localKeys.history, () => workouts.listHistory());
+  const performance = await observe(localKeys.performance('squat'), () => exercises.findLastPerformance('squat'));
+  const session = await workouts.startEmpty();
+  const exercise = await workouts.addExerciseToSession(session.id, 'squat');
+  await workouts.addSet(exercise.id);
+  await workouts.removeExercise(exercise.id);
+  assert.equal(active.data().exercises.length, 0);
+  const replacement = await workouts.addExerciseToSession(session.id, 'squat');
+  const set = await workouts.addSet(replacement.id);
+  await workouts.updateSet(set.id, { weight: 40, repetitions: 12, completed: true });
+  await workouts.finishSession(session.id);
+  assert.equal(performance.data().length, 1);
+  await workouts.deleteSession(session.id);
+  assert.equal(history.data().length, 0);
+  assert.equal(performance.data().length, 0);
+  assert.equal(await workouts.findById(session.id), null);
+  const discarded = await workouts.startEmpty();
+  await workouts.deleteSession(discarded.id);
+  assert.equal(active.data(), null);
+});
+
+test('invalid exercise input never writes or publishes changes', async (t) => {
+  const { exercises, notifications } = setup(t);
+  await assert.rejects(exercises.create({ name: ' ', muscleGroup: '', equipment: '', instructions: '' }));
+  assert.equal((await exercises.findAll()).length, 2);
+  assert.equal(notifications.length, 0);
+});
+
+test('dialogs queue messages without executing destructive callbacks on open or dismiss', () => {
+  const { dialogs, useDialogStore } = loadSource('src/store/dialogStore.ts');
+  useDialogStore.setState({ queue: [] });
+  let called = false;
+  dialogs.confirm({ title: 'Eliminar', message: 'Confirmar', onConfirm: () => { called = true; } });
+  dialogs.alert('Error', 'No se guardó');
+  const [first, second] = useDialogStore.getState().queue;
+  assert.equal(called, false);
+  useDialogStore.getState().dismiss(first.id);
+  assert.equal(called, false);
+  assert.equal(useDialogStore.getState().queue[0].id, second.id);
+  useDialogStore.getState().dismiss(second.id);
+  assert.equal(useDialogStore.getState().queue.length, 0);
 });

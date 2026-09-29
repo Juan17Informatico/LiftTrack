@@ -12,6 +12,7 @@ export function FormTextInput({ label, error, style, ...props }: FormTextInputPr
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         placeholderTextColor={colors.textMuted}
         style={[styles.input, style]}
         selectionColor={colors.primary}

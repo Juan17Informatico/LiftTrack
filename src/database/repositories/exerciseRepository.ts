@@ -1,11 +1,67 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
+import type { DataChangeListener } from '@/database/localData';
+import { withWriteTransaction } from '@/database/transactions';
+import { exerciseFormSchema, type ExerciseFormInput } from '@/schemas/exerciseSchemas';
+import { nowUtc } from '@/utils/date';
+import { createId } from '@/utils/uuid';
 
 import { mapExerciseRow } from '@/database/repositories/mappers';
 import type { Exercise, PreviousExerciseSet } from '@/types/domain';
 import type { ExerciseRow, PreviousExerciseSetRow } from '@/types/sqlite';
 
 export class ExerciseRepository {
-  constructor(private readonly db: SQLiteDatabase) {}
+  constructor(private readonly db: SQLiteDatabase, private readonly onChange?: DataChangeListener) {}
+
+  async create(input: ExerciseFormInput): Promise<Exercise> {
+    const values = exerciseFormSchema.parse(input);
+    const id = createId();
+    const timestamp = nowUtc();
+    await this.db.runAsync(
+      `INSERT INTO exercises (id, name, muscle_group, secondary_muscles, equipment, instructions, created_at, updated_at)
+       VALUES (?, ?, ?, '[]', ?, ?, ?, ?)`,
+      id, values.name, values.muscleGroup, values.equipment || null, values.instructions || null,
+      timestamp, timestamp,
+    );
+    const created = await this.findById(id);
+    if (!created) throw new Error('No se pudo crear el ejercicio.');
+    await this.onChange?.();
+    return created;
+  }
+
+  async update(id: string, input: ExerciseFormInput): Promise<Exercise> {
+    const values = exerciseFormSchema.parse(input);
+    const result = await this.db.runAsync(
+      `UPDATE exercises SET name = ?, muscle_group = ?, equipment = ?, instructions = ?, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      values.name, values.muscleGroup, values.equipment || null, values.instructions || null, nowUtc(), id,
+    );
+    if (!result.changes) throw new Error('Este ejercicio ya no está disponible.');
+    const updated = await this.findById(id);
+    if (!updated) throw new Error('No se pudo actualizar el ejercicio.');
+    await this.onChange?.();
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    const timestamp = nowUtc();
+    await withWriteTransaction(this.db, async (transaction) => {
+      await transaction.runAsync(
+        `UPDATE routines SET updated_at = ? WHERE id IN
+         (SELECT routine_id FROM routine_exercises WHERE exercise_id = ? AND deleted_at IS NULL)`,
+        timestamp, id,
+      );
+      await transaction.runAsync(
+        'UPDATE routine_exercises SET deleted_at = ?, updated_at = ? WHERE exercise_id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+      // Keep the row and workout links so recorded sets retain their exercise details.
+      await transaction.runAsync(
+        'UPDATE exercises SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+        timestamp, timestamp, id,
+      );
+    });
+    await this.onChange?.();
+  }
 
   async findAll(search?: string): Promise<Exercise[]> {
     try {
@@ -37,10 +93,10 @@ export class ExerciseRepository {
     }
   }
 
-  async findById(id: string): Promise<Exercise | null> {
+  async findById(id: string, includeDeleted = false): Promise<Exercise | null> {
     try {
       const row = await this.db.getFirstAsync<ExerciseRow>(
-        'SELECT * FROM exercises WHERE id = ? AND deleted_at IS NULL',
+        `SELECT * FROM exercises WHERE id = ? ${includeDeleted ? '' : 'AND deleted_at IS NULL'}`,
         id,
       );
 

@@ -7,7 +7,7 @@ export function useExerciseDetail(id: string | undefined) {
   const { exercises: repository } = useRepositories();
   const query = useLocalQuery(
     localKeys.exercise(id),
-    () => (id ? repository.findById(id) : Promise.resolve(null)),
+    () => (id ? repository.findById(id, true) : Promise.resolve(null)),
     !!id,
   );
   const performance = usePreviousPerformance(id);

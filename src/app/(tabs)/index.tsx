@@ -1,6 +1,7 @@
+import { dialogs } from '@/store/dialogStore';
 import { router } from 'expo-router';
 import { ArrowRight, Play, Plus } from 'lucide-react-native';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { BrandLogo } from '@/components/BrandLogo';
@@ -33,7 +34,7 @@ export default function HomeScreen() {
       setActiveWorkoutId(session.id);
       router.push('/workout/active');
     } catch (error) {
-      Alert.alert('No se pudo iniciar el entrenamiento', getErrorMessage(error));
+      dialogs.alert('No se pudo iniciar el entrenamiento', getErrorMessage(error));
     }
   }
 
@@ -43,7 +44,7 @@ export default function HomeScreen() {
       setActiveWorkoutId(session.id);
       router.push('/workout/active');
     } catch (error) {
-      Alert.alert('No se pudo iniciar la rutina', getErrorMessage(error));
+      dialogs.alert('No se pudo iniciar la rutina', getErrorMessage(error));
     }
   }
 
@@ -116,7 +117,7 @@ export default function HomeScreen() {
 
       <View style={styles.headerRow}>
         <Text style={styles.sectionTitle}>Catalogo de ejercicios</Text>
-        <Text style={styles.muted}>{exercises.length} cargados</Text>
+        <AppButton label="Ver todos" variant="ghost" onPress={() => router.push('/exercises')} />
       </View>
       <View style={styles.catalogGrid}>
         {exercises.slice(0, 6).map((exercise) => (

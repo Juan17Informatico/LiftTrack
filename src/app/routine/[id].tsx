@@ -1,9 +1,10 @@
+import { dialogs } from '@/store/dialogStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowDown, ArrowUp, Plus, Save, Trash2, Play } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { Card } from '@/components/Card';
@@ -60,23 +61,22 @@ export default function RoutineDetailScreen() {
     try {
       await routines.addExercise(routine.id, { exerciseId });
     } catch (caughtError) {
-      Alert.alert('No se pudo agregar el ejercicio', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo agregar el ejercicio', getErrorMessage(caughtError));
     }
   }
 
   async function removeExercise(routineExerciseId: string) {
-    try {
-      await routines.removeExercise(routineExerciseId);
-    } catch (caughtError) {
-      Alert.alert('No se pudo quitar el ejercicio', getErrorMessage(caughtError));
-    }
+    dialogs.confirm({
+      title: '¿Quitar de esta rutina?', message: 'El ejercicio seguirá disponible en tu catálogo. Solo se quitará de este plan.',
+      confirmLabel: 'Quitar ejercicio', onConfirm: () => routines.removeExercise(routineExerciseId),
+    });
   }
 
   async function moveExercise(routineExerciseId: string, direction: 'up' | 'down') {
     try {
       await routines.moveExercise(routineExerciseId, direction);
     } catch (caughtError) {
-      Alert.alert('No se pudo mover el ejercicio', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo mover el ejercicio', getErrorMessage(caughtError));
     }
   }
 
@@ -90,7 +90,7 @@ export default function RoutineDetailScreen() {
       setActiveWorkoutId(session.id);
       router.push('/workout/active');
     } catch (caughtError) {
-      Alert.alert('No se pudo iniciar el entrenamiento', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo iniciar el entrenamiento', getErrorMessage(caughtError));
     }
   }
 
@@ -103,7 +103,7 @@ export default function RoutineDetailScreen() {
       const updated = await routines.update(routine.id, input);
       reset({ name: updated.name, description: updated.description ?? '' });
     } catch (caughtError) {
-      Alert.alert('No se pudo guardar la rutina', getErrorMessage(caughtError));
+      dialogs.alert('No se pudo guardar la rutina', getErrorMessage(caughtError));
     }
   });
 
@@ -242,6 +242,15 @@ export default function RoutineDetailScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      <AppButton label="Crear un ejercicio nuevo" variant="secondary" icon={<Plus size={18} color={colors.text} />}
+        onPress={() => router.push({ pathname: '/exercise/create', params: { returnTo: 'previous' } })} />
+      <AppButton label="Eliminar rutina" variant="ghost" icon={<Trash2 size={18} color={colors.danger} />}
+        onPress={() => dialogs.confirm({
+          title: '¿Eliminar esta rutina?',
+          message: `“${routine.name}” se quitará de tus planes. Tus ejercicios y entrenamientos guardados se conservan.`,
+          confirmLabel: 'Eliminar rutina',
+          onConfirm: async () => { await routines.delete(routine.id); router.replace('/routines'); },
+        })} />
     </Screen>
   );
 }
