@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
@@ -6,6 +7,7 @@ import { useRepositories } from '@/hooks/useRepositories';
 import type { ExerciseFormInput } from '@/schemas/exerciseSchemas';
 
 export default function CreateExerciseScreen() {
+  const { t } = useTranslation();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { exercises } = useRepositories();
   async function save(input: ExerciseFormInput) {
@@ -13,5 +15,12 @@ export default function CreateExerciseScreen() {
     if (returnTo === 'previous' && router.canGoBack()) router.back();
     else router.replace({ pathname: '/exercise/[id]', params: { id: exercise.id } });
   }
-  return <Screen title="Tu próximo movimiento" subtitle="Amplía tu biblioteca con un ejercicio a tu medida."><ExerciseForm onSave={save} /></Screen>;
+  return (
+    <Screen
+      title={t('Tu próximo movimiento')}
+      subtitle={t('Amplía tu biblioteca con un ejercicio a tu medida.')}
+    >
+      <ExerciseForm onSave={save} />
+    </Screen>
+  );
 }

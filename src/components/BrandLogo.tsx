@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
+import { darkColors, radius } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface BrandLogoProps {
   variant?: 'icon' | 'title';
@@ -18,6 +20,7 @@ export function BrandLogo({
   size = variant === 'title' ? 220 : 64,
   trimVerticalSpace = false,
 }: BrandLogoProps) {
+  const { dark } = useTheme();
   const trimTitle = variant === 'title' && trimVerticalSpace;
   const [availableWidth, setAvailableWidth] = useState(size);
   const imageSize = Math.min(size, availableWidth);
@@ -28,7 +31,11 @@ export function BrandLogo({
   return (
     <View
       onLayout={({ nativeEvent }) => setAvailableWidth(nativeEvent.layout.width)}
-      style={[styles.frame, { width: size, height: frameHeight }]}
+      style={[
+        styles.frame,
+        variant === 'title' && !dark && styles.logoBackdrop,
+        { width: size, height: frameHeight },
+      ]}
     >
       <Image
         accessibilityLabel="LiftTrack"
@@ -53,6 +60,11 @@ export function BrandLogo({
 }
 
 const styles = StyleSheet.create({
+  logoBackdrop: {
+    // The supplied title artwork has white lettering.
+    backgroundColor: darkColors.background,
+    borderRadius: radius.md,
+  },
   frame: {
     alignSelf: 'center',
     maxWidth: '100%',

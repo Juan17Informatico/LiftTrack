@@ -1,11 +1,14 @@
+import { useTranslation } from '@/i18n';
 import { Tabs } from 'expo-router';
 import { BookOpen, Clock3, Dumbbell, History, Home, User } from 'lucide-react-native';
 import type { ColorValue } from 'react-native';
 import type { ReactNode } from 'react';
 
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   return (
     <Tabs
       screenOptions={{
@@ -22,17 +25,26 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: icon(Home, 'Inicio') }} />
+      <Tabs.Screen
+        name="index"
+        options={{ title: t('Inicio'), tabBarIcon: icon(Home, t('Inicio')) }}
+      />
       <Tabs.Screen
         name="routines"
-        options={{ title: 'Rutinas', tabBarIcon: icon(Dumbbell, 'Rutinas') }}
+        options={{ title: t('Rutinas'), tabBarIcon: icon(Dumbbell, t('Rutinas')) }}
       />
       <Tabs.Screen
         name="history"
-        options={{ title: 'Historial', tabBarIcon: icon(History, 'Historial') }}
+        options={{ title: t('Historial'), tabBarIcon: icon(History, t('Historial')) }}
       />
-      <Tabs.Screen name="exercises" options={{ title: 'Ejercicios', tabBarIcon: icon(BookOpen, 'Ejercicios') }} />
-      <Tabs.Screen name="profile" options={{ title: 'Perfil', tabBarIcon: icon(User, 'Perfil') }} />
+      <Tabs.Screen
+        name="exercises"
+        options={{ title: t('Ejercicios'), tabBarIcon: icon(BookOpen, t('Ejercicios')) }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: t('Perfil'), tabBarIcon: icon(User, t('Perfil')) }}
+      />
     </Tabs>
   );
 }

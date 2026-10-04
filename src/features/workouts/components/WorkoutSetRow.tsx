@@ -1,11 +1,15 @@
+import { useTranslation } from '@/i18n';
 import { Check, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { IconButton } from '@/components/IconButton';
-import { colors, radius, spacing } from '@/constants/theme';
+import { type ThemeColors, radius, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/useTheme';
+import { useWeight } from '@/hooks/useWeight';
+import { toStoredWeight, weightInput } from '@/utils/weight';
+import type { WeightUnit, WorkoutSet } from '@/types/domain';
 import type { UpdateWorkoutSetInput } from '@/database/repositories/workoutRepository';
-import type { WorkoutSet } from '@/types/domain';
 import { dialogs } from '@/store/dialogStore';
 import { getErrorMessage } from '@/utils/errors';
 
@@ -16,17 +20,35 @@ interface WorkoutSetRowProps {
 }
 
 export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
-  const [weight, setWeight] = useState(set.weight?.toString() ?? '');
+  const { t } = useTranslation();
+  const { colors, styles } = useThemedStyles(createStyles);
+  const { unit } = useWeight();
+  // Keep the unit alongside the draft so switching preferences cannot reinterpret input.
+  const [draft, setDraft] = useState<{ text: string; unit: WeightUnit } | null>(null);
+  const draftValue = draft?.text.trim() ? Number(draft.text.replace(',', '.')) : null;
+  const weight =
+    draft === null
+      ? weightInput(set.weight, unit)
+      : draft.unit === unit
+        ? draft.text
+        : weightInput(draftValue === null ? null : toStoredWeight(draftValue, draft.unit), unit);
   const [repetitions, setRepetitions] = useState(set.repetitions?.toString() ?? '');
   const [saving, setSaving] = useState(false);
 
   async function save(completed = set.completed) {
-    const input = parseSetInput(weight, repetitions, completed);
     setSaving(true);
     try {
+      const input = parseSetInput(draft?.text ?? '', repetitions, completed);
+      input.weight =
+        draft === null
+          ? set.weight
+          : input.weight === null
+            ? null
+            : toStoredWeight(input.weight, draft.unit);
       await onUpdate(set.id, input);
+      setDraft(null);
     } catch (error) {
-      dialogs.alert('No se pudo guardar la serie', getErrorMessage(error));
+      dialogs.alert(t('No se pudo guardar la serie'), getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -43,8 +65,9 @@ export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
         editable={!saving}
         keyboardType="decimal-pad"
         onBlur={() => save()}
-        onChangeText={setWeight}
-        placeholder="kg"
+        onChangeText={(text) => setDraft({ text, unit })}
+        accessibilityLabel={t('Peso ({{unit}})', { unit })}
+        placeholder={unit}
         placeholderTextColor={colors.textMuted}
         selectionColor={colors.primary}
         style={styles.input}
@@ -56,19 +79,22 @@ export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
         onBlur={() => save()}
         onChangeText={setRepetitions}
         placeholder="reps"
+        accessibilityLabel={t('Reps')}
         placeholderTextColor={colors.textMuted}
         selectionColor={colors.primary}
         style={styles.input}
         value={repetitions}
       />
       <IconButton
-        accessibilityLabel={set.completed ? 'Marcar serie incompleta' : 'Marcar serie completa'}
-        icon={<Check color={set.completed ? colors.ink : colors.text} size={18} />}
+        accessibilityLabel={
+          set.completed ? t('Marcar serie incompleta') : t('Marcar serie completa')
+        }
+        icon={<Check color={set.completed ? colors.success : colors.text} size={18} />}
         onPress={toggleCompleted}
         disabled={saving}
       />
       <IconButton
-        accessibilityLabel="Eliminar serie"
+        accessibilityLabel={t('Eliminar serie')}
         danger
         icon={<Trash2 color={colors.danger} size={18} />}
         onPress={() => onDelete(set.id)}
@@ -78,9 +104,22 @@ export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
   );
 }
 
-function parseSetInput(weight: string, repetitions: string, completed: boolean): UpdateWorkoutSetInput {
+function parseSetInput(
+  weight: string,
+  repetitions: string,
+  completed: boolean,
+): UpdateWorkoutSetInput {
   const parsedWeight = Number(weight.replace(',', '.'));
   const parsedRepetitions = Number(repetitions);
+
+  if (
+    (weight.trim() !== '' && (!Number.isFinite(parsedWeight) || parsedWeight < 0)) ||
+    (repetitions.trim() !== '' && (!Number.isInteger(parsedRepetitions) || parsedRepetitions <= 0))
+  ) {
+    throw new Error(
+      'El peso debe ser un número positivo o cero y las repeticiones un entero positivo.',
+    );
+  }
 
   return {
     weight: Number.isFinite(parsedWeight) && weight.trim() !== '' ? parsedWeight : null,
@@ -90,31 +129,32 @@ function parseSetInput(weight: string, repetitions: string, completed: boolean):
   };
 }
 
-const styles = StyleSheet.create({
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  completedRow: {
-    opacity: 0.82,
-  },
-  number: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: '800',
-    textAlign: 'center',
-    width: 24,
-  },
-  input: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    color: colors.text,
-    flex: 1,
-    fontSize: 16,
-    minHeight: 40,
-    paddingHorizontal: spacing.sm,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    completedRow: {
+      opacity: 0.82,
+    },
+    number: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '800',
+      textAlign: 'center',
+      width: 24,
+    },
+    input: {
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      color: colors.text,
+      flex: 1,
+      fontSize: 16,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+    },
+  });

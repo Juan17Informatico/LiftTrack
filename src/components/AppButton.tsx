@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/constants/theme';
+import { type ThemeColors, radius, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/useTheme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -20,6 +21,7 @@ export function AppButton({
   variant = 'primary',
   disabled = false,
 }: AppButtonProps) {
+  const { styles } = useThemedStyles(createStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -34,7 +36,16 @@ export function AppButton({
     >
       <View style={styles.inner}>
         {icon}
-        <Text style={[styles.label, variant === 'primary' ? styles.primaryLabel : styles.defaultLabel]}>
+        <Text
+          style={[
+            styles.label,
+            variant === 'primary'
+              ? styles.primaryLabel
+              : variant === 'danger'
+                ? styles.dangerLabel
+                : styles.defaultLabel,
+          ]}
+        >
           {label}
         </Text>
       </View>
@@ -42,50 +53,52 @@ export function AppButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    borderRadius: radius.md,
-    minHeight: 46,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  inner: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    justifyContent: 'center',
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  primaryLabel: {
-    color: colors.ink,
-  },
-  defaultLabel: {
-    color: colors.text,
-  },
-  primary: {
-    backgroundColor: colors.primary,
-  },
-  secondary: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  danger: {
-    backgroundColor: colors.danger,
-  },
-  disabled: {
-    opacity: 0.45,
-  },
-  pressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.99 }],
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      borderRadius: radius.md,
+      minHeight: 46,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    inner: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.sm,
+      justifyContent: 'center',
+    },
+    label: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    primaryLabel: {
+      color: colors.ink,
+    },
+    defaultLabel: {
+      color: colors.text,
+    },
+    dangerLabel: { color: colors.onDanger },
+    primary: {
+      backgroundColor: colors.primary,
+    },
+    secondary: {
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+    ghost: {
+      backgroundColor: 'transparent',
+    },
+    danger: {
+      backgroundColor: colors.danger,
+    },
+    disabled: {
+      opacity: 0.45,
+    },
+    pressed: {
+      opacity: 0.8,
+      transform: [{ scale: 0.99 }],
+    },
+  });

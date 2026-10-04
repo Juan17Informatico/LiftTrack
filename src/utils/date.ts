@@ -1,14 +1,19 @@
+import { usePreferencesStore } from '@/store/preferencesStore';
+
 export function nowUtc(): string {
   return new Date().toISOString();
 }
 
 export function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('es-CO', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat(
+    usePreferencesStore.getState().language === 'es' ? 'es-CO' : 'en-US',
+    {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  ).format(new Date(value));
 }
 
 export function formatDuration(startedAt: string, finishedAt?: string | null): string {

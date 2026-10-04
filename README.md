@@ -12,7 +12,10 @@ LiftTrack is a local-first mobile app for tracking gym workouts. The MVP focuses
 - Workout history with completed exercises and sets.
 - Previous performance lookup per exercise.
 - Local preferences persisted with Expo SQLite, including in Expo Go.
-- Spanish UI by default, while exercise names remain mostly in English.
+- Spanish and English UI, including built-in exercises, validation, and dates.
+- Light, dark, and system themes that update all screens immediately.
+- Global kg/lb display and input conversion, with weights stored canonically in kg.
+- Confirmed local history clearing, preserving routines, exercises, and the active workout.
 - SecureStore wrapper ready for future authentication tokens.
 
 ## Tech Stack
@@ -38,6 +41,7 @@ src/
   database/             SQLite initialization, migrations, seed, repositories
   features/             Feature hooks and components
   hooks/                Shared hooks
+  i18n/                 Translations and built-in exercise display text
   schemas/              Zod schemas
   services/             Platform services such as preferences and SecureStore
   store/                Zustand stores
@@ -55,6 +59,22 @@ Mounted views retain their data during these background reads, so mutations do n
 replace the screen with a loader or reset in-progress forms. Local queries use
 `networkMode: 'always'` so this also works offline. New write methods must notify
 their repository's `onChange` listener after persistence succeeds.
+
+Preferences are hydrated before navigation mounts and published through
+`preferencesStore`. Use `useThemedStyles`/`useTheme` for colors, `useTranslation`
+for interface copy, and `useWeight` for weight display. Do not translate user-authored
+names or notes. Existing numeric weights are treated as kg, matching the original
+input labels; unit changes never rewrite the database.
+
+History clearing permanently removes all finished sessions and their child rows
+in one transaction, including sessions beyond the visible 30-item page. The
+confirmation dialog is required; cancellation leaves all data intact.
+
+`expo-system-ui` was added for system appearance support. Rebuild existing native
+development clients after pulling this change. For web previews and deployment,
+the server must send `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp` on the HTML and assets, as required by
+[Expo SQLite web support](https://docs.expo.dev/versions/v54.0.0/sdk/sqlite/#web-setup).
 
 ## Local-First Approach
 

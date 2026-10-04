@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n';
 import { dialogs } from '@/store/dialogStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
@@ -9,12 +10,15 @@ import { AppButton } from '@/components/AppButton';
 import { Card } from '@/components/Card';
 import { FormTextInput } from '@/components/FormTextInput';
 import { Screen } from '@/components/Screen';
-import { colors } from '@/constants/theme';
+import { type ThemeColors } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/useTheme';
 import { useRepositories } from '@/hooks/useRepositories';
 import { routineFormSchema, type RoutineFormInput } from '@/schemas/routineSchemas';
 import { getErrorMessage } from '@/utils/errors';
 
 export default function CreateRoutineScreen() {
+  const { t } = useTranslation();
+  const { colors, styles } = useThemedStyles(createStyles);
   const { routines } = useRepositories();
   const {
     control,
@@ -33,12 +37,15 @@ export default function CreateRoutineScreen() {
       const routine = await routines.create(input);
       router.replace({ pathname: '/routine/[id]', params: { id: routine.id } });
     } catch (error) {
-      dialogs.alert('No se pudo crear la rutina', getErrorMessage(error));
+      dialogs.alert(t('No se pudo crear la rutina'), getErrorMessage(error));
     }
   });
 
   return (
-    <Screen title="Crear rutina" subtitle="Ponle nombre al plan y luego agrega ejercicios del catalogo.">
+    <Screen
+      title={t('Crear rutina')}
+      subtitle={t('Ponle nombre al plan y luego agrega ejercicios del catalogo.')}
+    >
       <Card>
         <Controller
           control={control}
@@ -47,10 +54,10 @@ export default function CreateRoutineScreen() {
             <FormTextInput
               autoFocus
               error={errors.name?.message}
-              label="Nombre"
+              label={t('Nombre')}
               onBlur={onBlur}
               onChangeText={onChange}
-              placeholder="Dia de empuje"
+              placeholder={t('Dia de empuje')}
               value={value}
             />
           )}
@@ -61,12 +68,12 @@ export default function CreateRoutineScreen() {
           render={({ field: { onBlur, onChange, value } }) => (
             <FormTextInput
               error={errors.description?.message}
-              label="Descripcion"
+              label={t('Descripcion')}
               multiline
               numberOfLines={3}
               onBlur={onBlur}
               onChangeText={onChange}
-              placeholder="Pecho, hombros, triceps"
+              placeholder={t('Pecho, hombros, triceps')}
               style={styles.textArea}
               value={value}
             />
@@ -75,23 +82,24 @@ export default function CreateRoutineScreen() {
         <AppButton
           disabled={isSubmitting}
           icon={<Save color={colors.ink} size={18} />}
-          label={isSubmitting ? 'Guardando' : 'Guardar rutina'}
+          label={isSubmitting ? t('Guardando') : t('Guardar rutina')}
           onPress={onSubmit}
         />
       </Card>
-      <Text style={styles.note}>Los ejercicios se agregan en la siguiente pantalla.</Text>
+      <Text style={styles.note}>{t('Los ejercicios se agregan en la siguiente pantalla.')}</Text>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  textArea: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
-  note: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    textArea: {
+      minHeight: 96,
+      textAlignVertical: 'top',
+    },
+    note: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+  });

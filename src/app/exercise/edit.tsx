@@ -1,3 +1,4 @@
+import { useTranslation } from '@/i18n';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -9,6 +10,7 @@ import { useRepositories } from '@/hooks/useRepositories';
 import type { ExerciseFormInput } from '@/schemas/exerciseSchemas';
 
 export default function EditExerciseScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { exercise, loading, error } = useExerciseDetail(id);
   const { exercises } = useRepositories();
@@ -18,10 +20,26 @@ export default function EditExerciseScreen() {
     else router.replace({ pathname: '/exercise/[id]', params: { id } });
   }
   return (
-    <Screen title="Editar ejercicio" subtitle="Ajusta los detalles de tu biblioteca.">
-      {loading ? <LoadingState label="Cargando ejercicio" /> : error || !exercise || exercise.deletedAt ? (
-        <EmptyState title="Ejercicio no disponible" message={error ?? 'Este ejercicio ya no está en el catálogo.'} />
-      ) : <ExerciseForm key={id} onSave={save} initialValues={{ name: exercise.name, muscleGroup: exercise.muscleGroup, equipment: exercise.equipment ?? '', instructions: exercise.instructions ?? '' }} />}
+    <Screen title={t('Editar ejercicio')} subtitle={t('Ajusta los detalles de tu biblioteca.')}>
+      {loading ? (
+        <LoadingState label={t('Cargando ejercicio')} />
+      ) : error || !exercise || exercise.deletedAt ? (
+        <EmptyState
+          title={t('Ejercicio no disponible')}
+          message={error ?? t('Este ejercicio ya no está en el catálogo.')}
+        />
+      ) : (
+        <ExerciseForm
+          key={id}
+          onSave={save}
+          initialValues={{
+            name: exercise.name,
+            muscleGroup: exercise.muscleGroup,
+            equipment: exercise.equipment ?? '',
+            instructions: exercise.instructions ?? '',
+          }}
+        />
+      )}
     </Screen>
   );
 }

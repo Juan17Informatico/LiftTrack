@@ -1,54 +1,56 @@
-import { useState } from 'react';
+import { useTranslation } from '@/i18n';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
 import { BrandLogo } from '@/components/BrandLogo';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
-import { colors, spacing } from '@/constants/theme';
-import { preferences, type AppLanguage, type ThemePreference } from '@/services/preferences';
-import type { WeightUnit } from '@/types/domain';
+import { type ThemeColors, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/useTheme';
+import { usePreferencesStore } from '@/store/preferencesStore';
 
 export default function ProfileScreen() {
-  const [unit, setUnit] = useState<WeightUnit>(preferences.getWeightUnit());
-  const [theme, setTheme] = useState<ThemePreference>(preferences.getThemePreference());
-  const [language, setLanguage] = useState<AppLanguage>(preferences.getAppLanguage());
-
-  function updateUnit(nextUnit: WeightUnit) {
-    preferences.setWeightUnit(nextUnit);
-    setUnit(nextUnit);
-  }
-
-  function updateTheme(nextTheme: ThemePreference) {
-    preferences.setThemePreference(nextTheme);
-    setTheme(nextTheme);
-  }
-
-  function updateLanguage(nextLanguage: AppLanguage) {
-    preferences.setAppLanguage(nextLanguage);
-    setLanguage(nextLanguage);
-  }
+  const { t } = useTranslation();
+  const { styles } = useThemedStyles(createStyles);
+  const {
+    unit,
+    theme,
+    language,
+    setUnit: updateUnit,
+    setTheme: updateTheme,
+    setLanguage: updateLanguage,
+  } = usePreferencesStore();
 
   return (
-    <Screen title="Perfil" subtitle="Preferencias locales para el MVP offline.">
+    <Screen
+      title={t('Perfil')}
+      subtitle={t('Personaliza tu experiencia. Los cambios se guardan en este dispositivo.')}
+    >
       <Card>
-        <Text style={styles.title}>Idioma</Text>
+        <Text style={styles.title}>{t('Idioma')}</Text>
         <Text style={styles.muted}>
-          La interfaz se muestra en espanol. Los nombres de ejercicios se conservan mayormente en
-          ingles.
+          {' '}
+          {t('Elige el idioma de la interfaz. Tus textos personalizados se conservan.')}{' '}
         </Text>
         <View style={styles.row}>
           <AppButton
-            label="Espanol"
+            label="Español"
             variant={language === 'es' ? 'primary' : 'secondary'}
             onPress={() => updateLanguage('es')}
+          />
+          <AppButton
+            label="English"
+            variant={language === 'en' ? 'primary' : 'secondary'}
+            onPress={() => updateLanguage('en')}
           />
         </View>
       </Card>
 
       <Card>
-        <Text style={styles.title}>Unidades</Text>
-        <Text style={styles.muted}>Los pesos se guardan como numeros. La unidad visible es una preferencia.</Text>
+        <Text style={styles.title}>{t('Unidades')}</Text>
+        <Text style={styles.muted}>
+          {t('Los pesos se convierten automáticamente a la unidad elegida en toda la app.')}
+        </Text>
         <View style={styles.row}>
           <AppButton
             label="kg"
@@ -64,21 +66,23 @@ export default function ProfileScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.title}>Tema</Text>
-        <Text style={styles.muted}>La primera version visual esta optimizada para modo oscuro.</Text>
+        <Text style={styles.title}>{t('Tema')}</Text>
+        <Text style={styles.muted}>
+          {t('Elige un tema o sigue la apariencia de tu dispositivo.')}
+        </Text>
         <View style={styles.row}>
           <AppButton
-            label="Sistema"
+            label={t('Sistema')}
             variant={theme === 'system' ? 'primary' : 'secondary'}
             onPress={() => updateTheme('system')}
           />
           <AppButton
-            label="Oscuro"
+            label={t('Oscuro')}
             variant={theme === 'dark' ? 'primary' : 'secondary'}
             onPress={() => updateTheme('dark')}
           />
           <AppButton
-            label="Claro"
+            label={t('Claro')}
             variant={theme === 'light' ? 'primary' : 'secondary'}
             onPress={() => updateTheme('light')}
           />
@@ -90,8 +94,10 @@ export default function ProfileScreen() {
           <BrandLogo variant="title" size={180} trimVerticalSpace />
           <Text style={styles.title}>LiftTrack MVP</Text>
           <Text style={[styles.muted, styles.brandDescription]}>
-            Datos local-first, persistencia SQLite, capa de repositories y UUIDs preparados para
-            sincronizacion futura con Supabase.
+            {' '}
+            {t(
+              'Tus entrenamientos, siempre contigo. Registra tu progreso incluso sin conexión.',
+            )}{' '}
           </Text>
         </View>
       </Card>
@@ -99,27 +105,28 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  brandSection: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  brandDescription: {
-    textAlign: 'center',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  muted: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    brandSection: {
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    brandDescription: {
+      textAlign: 'center',
+    },
+    title: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    muted: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    row: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+  });

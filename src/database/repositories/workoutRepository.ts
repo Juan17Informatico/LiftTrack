@@ -133,6 +133,23 @@ export class WorkoutRepository {
     }
   }
 
+  async clearHistory(): Promise<void> {
+    // Hard-delete every finished session, including hidden/deleted history, in one transaction.
+    // Explicit child deletion also covers databases created without cascading foreign keys.
+    await withWriteTransaction(this.db, async (transaction) => {
+      await transaction.runAsync(`DELETE FROM workout_sets WHERE workout_exercise_id IN (
+        SELECT id FROM workout_exercises WHERE workout_session_id IN (
+          SELECT id FROM workout_sessions WHERE finished_at IS NOT NULL
+        )
+      )`);
+      await transaction.runAsync(`DELETE FROM workout_exercises WHERE workout_session_id IN (
+        SELECT id FROM workout_sessions WHERE finished_at IS NOT NULL
+      )`);
+      await transaction.runAsync('DELETE FROM workout_sessions WHERE finished_at IS NOT NULL');
+    });
+    await this.onChange?.();
+  }
+
   async startFromRoutine(routineId: string): Promise<WorkoutSession> {
     try {
       const sessionId = createId();
@@ -256,7 +273,8 @@ export class WorkoutRepository {
            WHERE exercises.id = ? AND workout_sessions.id = ?
            AND exercises.deleted_at IS NULL AND workout_sessions.deleted_at IS NULL
            AND workout_sessions.finished_at IS NULL`,
-          exerciseId, sessionId,
+          exerciseId,
+          sessionId,
         );
         if (!available) throw new Error('El ejercicio o el entrenamiento ya no están disponibles.');
         const sortRow = await transaction.getFirstAsync<{ next_sort_order: number }>(
@@ -444,15 +462,21 @@ export class WorkoutRepository {
       await transaction.runAsync(
         `UPDATE workout_sets SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL
          AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE workout_session_id = ?)`,
-        timestamp, timestamp, id,
+        timestamp,
+        timestamp,
+        id,
       );
       await transaction.runAsync(
         'UPDATE workout_exercises SET deleted_at = ?, updated_at = ? WHERE workout_session_id = ? AND deleted_at IS NULL',
-        timestamp, timestamp, id,
+        timestamp,
+        timestamp,
+        id,
       );
       await transaction.runAsync(
         'UPDATE workout_sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-        timestamp, timestamp, id,
+        timestamp,
+        timestamp,
+        id,
       );
     });
     await this.onChange?.();
@@ -463,11 +487,15 @@ export class WorkoutRepository {
     await withWriteTransaction(this.db, async (transaction) => {
       await transaction.runAsync(
         'UPDATE workout_sets SET deleted_at = ?, updated_at = ? WHERE workout_exercise_id = ? AND deleted_at IS NULL',
-        timestamp, timestamp, id,
+        timestamp,
+        timestamp,
+        id,
       );
       await transaction.runAsync(
         'UPDATE workout_exercises SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-        timestamp, timestamp, id,
+        timestamp,
+        timestamp,
+        id,
       );
     });
     await this.onChange?.();
@@ -491,7 +519,11 @@ export class WorkoutRepository {
           ON exercises.id = workout_exercises.exercise_id
         WHERE workout_exercises.workout_session_id = ?
           AND workout_exercises.deleted_at IS NULL
-          AND exercises.deleted_at IS NULL
+          AND (exercises.deleted_at IS NULL OR EXISTS (
+            SELECT 1 FROM workout_sessions
+            WHERE workout_sessions.id = workout_exercises.workout_session_id
+              AND workout_sessions.finished_at IS NOT NULL
+          ))
         ORDER BY workout_exercises.sort_order ASC
       `,
       sessionId,
@@ -521,7 +553,9 @@ export class WorkoutRepository {
       setsByExerciseId.set(set.workoutExerciseId, existing);
     }
 
-    return exerciseRows.map((row) => mapWorkoutExerciseRow(row, setsByExerciseId.get(row.id) ?? []));
+    return exerciseRows.map((row) =>
+      mapWorkoutExerciseRow(row, setsByExerciseId.get(row.id) ?? []),
+    );
   }
 
   private async findSetById(id: string): Promise<WorkoutSet | null> {

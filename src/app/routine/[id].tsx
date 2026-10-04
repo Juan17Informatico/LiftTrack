@@ -1,3 +1,5 @@
+import { exerciseName } from '@/i18n/exercises';
+import { useTranslation } from '@/i18n';
 import { dialogs } from '@/store/dialogStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,7 +15,8 @@ import { FormTextInput } from '@/components/FormTextInput';
 import { IconButton } from '@/components/IconButton';
 import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
-import { colors, spacing } from '@/constants/theme';
+import { type ThemeColors, spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/hooks/useTheme';
 import { useExerciseCatalog } from '@/features/exercises/hooks/useExerciseCatalog';
 import { useRoutineDetail } from '@/features/routines/hooks/useRoutineDetail';
 import { useRepositories } from '@/hooks/useRepositories';
@@ -23,6 +26,8 @@ import { getErrorMessage } from '@/utils/errors';
 import { translateMuscleGroup } from '@/utils/exerciseMetadata';
 
 export default function RoutineDetailScreen() {
+  const { t } = useTranslation();
+  const { colors, styles } = useThemedStyles(createStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { routine, loading, error } = useRoutineDetail(id);
   const { exercises } = useExerciseCatalog();
@@ -61,14 +66,16 @@ export default function RoutineDetailScreen() {
     try {
       await routines.addExercise(routine.id, { exerciseId });
     } catch (caughtError) {
-      dialogs.alert('No se pudo agregar el ejercicio', getErrorMessage(caughtError));
+      dialogs.alert(t('No se pudo agregar el ejercicio'), getErrorMessage(caughtError));
     }
   }
 
   async function removeExercise(routineExerciseId: string) {
     dialogs.confirm({
-      title: '¿Quitar de esta rutina?', message: 'El ejercicio seguirá disponible en tu catálogo. Solo se quitará de este plan.',
-      confirmLabel: 'Quitar ejercicio', onConfirm: () => routines.removeExercise(routineExerciseId),
+      title: t('¿Quitar de esta rutina?'),
+      message: t('El ejercicio seguirá disponible en tu catálogo. Solo se quitará de este plan.'),
+      confirmLabel: t('Quitar ejercicio'),
+      onConfirm: () => routines.removeExercise(routineExerciseId),
     });
   }
 
@@ -76,7 +83,7 @@ export default function RoutineDetailScreen() {
     try {
       await routines.moveExercise(routineExerciseId, direction);
     } catch (caughtError) {
-      dialogs.alert('No se pudo mover el ejercicio', getErrorMessage(caughtError));
+      dialogs.alert(t('No se pudo mover el ejercicio'), getErrorMessage(caughtError));
     }
   }
 
@@ -90,7 +97,7 @@ export default function RoutineDetailScreen() {
       setActiveWorkoutId(session.id);
       router.push('/workout/active');
     } catch (caughtError) {
-      dialogs.alert('No se pudo iniciar el entrenamiento', getErrorMessage(caughtError));
+      dialogs.alert(t('No se pudo iniciar el entrenamiento'), getErrorMessage(caughtError));
     }
   }
 
@@ -103,22 +110,25 @@ export default function RoutineDetailScreen() {
       const updated = await routines.update(routine.id, input);
       reset({ name: updated.name, description: updated.description ?? '' });
     } catch (caughtError) {
-      dialogs.alert('No se pudo guardar la rutina', getErrorMessage(caughtError));
+      dialogs.alert(t('No se pudo guardar la rutina'), getErrorMessage(caughtError));
     }
   });
 
   if (loading) {
     return (
-      <Screen title="Rutina">
-        <LoadingState label="Cargando rutina" />
+      <Screen title={t('Rutina')}>
+        <LoadingState label={t('Cargando rutina')} />
       </Screen>
     );
   }
 
   if (error || !routine) {
     return (
-      <Screen title="Rutina">
-        <EmptyState title="Rutina no encontrada" message={error ?? 'Esta rutina no esta disponible.'} />
+      <Screen title={t('Rutina')}>
+        <EmptyState
+          title={t('Rutina no encontrada')}
+          message={error ?? t('Esta rutina no esta disponible.')}
+        />
       </Screen>
     );
   }
@@ -130,12 +140,12 @@ export default function RoutineDetailScreen() {
     <Screen
       title={routine.name}
       subtitle={`${routine.exercises.length} ${
-        routine.exercises.length === 1 ? 'ejercicio' : 'ejercicios'
+        routine.exercises.length === 1 ? t('ejercicio') : t('ejercicios')
       }`}
       right={
         <AppButton
           icon={<Play color={colors.ink} size={18} />}
-          label="Iniciar"
+          label={t('Iniciar')}
           onPress={startWorkout}
         />
       }
@@ -147,7 +157,7 @@ export default function RoutineDetailScreen() {
           render={({ field: { onBlur, onChange, value } }) => (
             <FormTextInput
               error={errors.name?.message}
-              label="Nombre"
+              label={t('Nombre')}
               onBlur={onBlur}
               onChangeText={onChange}
               value={value}
@@ -160,7 +170,7 @@ export default function RoutineDetailScreen() {
           render={({ field: { onBlur, onChange, value } }) => (
             <FormTextInput
               error={errors.description?.message}
-              label="Descripcion"
+              label={t('Descripcion')}
               multiline
               onBlur={onBlur}
               onChangeText={onChange}
@@ -172,14 +182,17 @@ export default function RoutineDetailScreen() {
         <AppButton
           disabled={isSubmitting}
           icon={<Save color={colors.ink} size={18} />}
-          label="Guardar cambios"
+          label={t('Guardar cambios')}
           onPress={onSave}
         />
       </Card>
 
-      <Text style={styles.sectionTitle}>Ejercicios de la rutina</Text>
+      <Text style={styles.sectionTitle}>{t('Ejercicios de la rutina')}</Text>
       {routine.exercises.length === 0 ? (
-        <EmptyState title="No hay ejercicios" message="Agrega movimientos desde el catalogo local." />
+        <EmptyState
+          title={t('No hay ejercicios')}
+          message={t('Agrega movimientos desde el catalogo local.')}
+        />
       ) : (
         <View style={styles.stack}>
           {routine.exercises.map((routineExercise, index) => (
@@ -195,26 +208,26 @@ export default function RoutineDetailScreen() {
                   }
                   style={styles.exerciseCopy}
                 >
-                  <Text style={styles.exerciseName}>{routineExercise.exercise?.name}</Text>
+                  <Text style={styles.exerciseName}>{exerciseName(routineExercise.exercise)}</Text>
                   <Text style={styles.muted}>
                     {translateMuscleGroup(routineExercise.exercise?.muscleGroup)}
                   </Text>
                 </TouchableOpacity>
                 <View style={styles.actions}>
                   <IconButton
-                    accessibilityLabel="Mover ejercicio arriba"
+                    accessibilityLabel={t('Mover ejercicio arriba')}
                     disabled={index === 0}
                     icon={<ArrowUp color={colors.text} size={17} />}
                     onPress={() => moveExercise(routineExercise.id, 'up')}
                   />
                   <IconButton
-                    accessibilityLabel="Mover ejercicio abajo"
+                    accessibilityLabel={t('Mover ejercicio abajo')}
                     disabled={index === routine.exercises.length - 1}
                     icon={<ArrowDown color={colors.text} size={17} />}
                     onPress={() => moveExercise(routineExercise.id, 'down')}
                   />
                   <IconButton
-                    accessibilityLabel="Quitar ejercicio"
+                    accessibilityLabel={t('Quitar ejercicio')}
                     danger
                     icon={<Trash2 color={colors.danger} size={17} />}
                     onPress={() => removeExercise(routineExercise.id)}
@@ -226,14 +239,18 @@ export default function RoutineDetailScreen() {
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Agregar ejercicio</Text>
+      <Text style={styles.sectionTitle}>{t('Agregar ejercicio')}</Text>
       <View style={styles.stack}>
         {availableExercises.map((exercise) => (
-          <TouchableOpacity activeOpacity={0.75} key={exercise.id} onPress={() => addExercise(exercise.id)}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            key={exercise.id}
+            onPress={() => addExercise(exercise.id)}
+          >
             <Card>
               <View style={styles.exerciseRow}>
                 <View style={styles.exerciseCopy}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <Text style={styles.exerciseName}>{exerciseName(exercise)}</Text>
                   <Text style={styles.muted}>{translateMuscleGroup(exercise.muscleGroup)}</Text>
                 </View>
                 <Plus color={colors.primary} size={20} />
@@ -242,53 +259,72 @@ export default function RoutineDetailScreen() {
           </TouchableOpacity>
         ))}
       </View>
-      <AppButton label="Crear un ejercicio nuevo" variant="secondary" icon={<Plus size={18} color={colors.text} />}
-        onPress={() => router.push({ pathname: '/exercise/create', params: { returnTo: 'previous' } })} />
-      <AppButton label="Eliminar rutina" variant="ghost" icon={<Trash2 size={18} color={colors.danger} />}
-        onPress={() => dialogs.confirm({
-          title: '¿Eliminar esta rutina?',
-          message: `“${routine.name}” se quitará de tus planes. Tus ejercicios y entrenamientos guardados se conservan.`,
-          confirmLabel: 'Eliminar rutina',
-          onConfirm: async () => { await routines.delete(routine.id); router.replace('/routines'); },
-        })} />
+      <AppButton
+        label={t('Crear un ejercicio nuevo')}
+        variant="secondary"
+        icon={<Plus size={18} color={colors.text} />}
+        onPress={() =>
+          router.push({ pathname: '/exercise/create', params: { returnTo: 'previous' } })
+        }
+      />
+      <AppButton
+        label={t('Eliminar rutina')}
+        variant="ghost"
+        icon={<Trash2 size={18} color={colors.danger} />}
+        onPress={() =>
+          dialogs.confirm({
+            title: t('¿Eliminar esta rutina?'),
+            message: t(
+              '“{{name}}” se quitará de tus planes. Tus ejercicios y entrenamientos guardados se conservan.',
+              { name: routine.name },
+            ),
+            confirmLabel: t('Eliminar rutina'),
+            onConfirm: async () => {
+              await routines.delete(routine.id);
+              router.replace('/routines');
+            },
+          })
+        }
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  textArea: {
-    minHeight: 88,
-    textAlignVertical: 'top',
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  stack: {
-    gap: spacing.md,
-  },
-  exerciseRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    justifyContent: 'space-between',
-  },
-  exerciseCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  exerciseName: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  muted: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    textArea: {
+      minHeight: 88,
+      textAlignVertical: 'top',
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    stack: {
+      gap: spacing.md,
+    },
+    exerciseRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: spacing.md,
+      justifyContent: 'space-between',
+    },
+    exerciseCopy: {
+      flex: 1,
+      gap: spacing.xs,
+    },
+    exerciseName: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    muted: {
+      color: colors.textMuted,
+      fontSize: 13,
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+  });

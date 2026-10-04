@@ -1,3 +1,5 @@
+import { translateMessage } from '@/i18n';
+
 const muscleGroupTranslations: Record<string, string> = {
   Back: 'Espalda',
   Biceps: 'Biceps',
@@ -22,10 +24,10 @@ const equipmentTranslations: Record<string, string> = {
 
 export function translateMuscleGroup(value: string | null | undefined): string {
   if (!value) {
-    return 'Sin especificar';
+    return translateMessage('Sin especificar');
   }
 
-  return muscleGroupTranslations[value] ?? value;
+  return translateMessage(muscleGroupTranslations[value] ?? value);
 }
 
 export function translateMuscleGroups(values: string[]): string {
@@ -34,8 +36,8 @@ export function translateMuscleGroups(values: string[]): string {
 
 export function translateEquipment(value: string | null | undefined): string {
   if (!value) {
-    return 'Sin especificar';
+    return translateMessage('Sin especificar');
   }
 
-  return equipmentTranslations[value] ?? value;
+  return translateMessage(equipmentTranslations[value] ?? value);
 }

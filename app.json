@@ -33,7 +33,8 @@
           "imageWidth": 220,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-system-ui"
     ],
     "experiments": {
       "typedRoutes": true

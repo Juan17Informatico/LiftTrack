@@ -7,9 +7,21 @@ const THEME_KEY = 'themePreference';
 const LANGUAGE_KEY = 'appLanguage';
 
 export type ThemePreference = 'system' | 'dark' | 'light';
-export type AppLanguage = 'es';
+export type AppLanguage = 'es' | 'en';
 
 export const preferences = {
+  async load(): Promise<{ unit: WeightUnit; theme: ThemePreference; language: AppLanguage }> {
+    // Open the web worker asynchronously before any synchronous preference access.
+    const unit = await Storage.getItemAsync(UNIT_KEY);
+    const theme = await Storage.getItemAsync(THEME_KEY);
+    const language = await Storage.getItemAsync(LANGUAGE_KEY);
+    return {
+      unit: unit === 'lb' ? 'lb' : 'kg',
+      theme: theme === 'dark' || theme === 'light' ? theme : 'system',
+      language: language === 'en' ? 'en' : 'es',
+    };
+  },
+
   getWeightUnit(): WeightUnit {
     const value = Storage.getItemSync(UNIT_KEY);
     return value === 'lb' ? 'lb' : 'kg';
@@ -33,7 +45,7 @@ export const preferences = {
   },
 
   getAppLanguage(): AppLanguage {
-    return 'es';
+    return Storage.getItemSync(LANGUAGE_KEY) === 'en' ? 'en' : 'es';
   },
 
   setAppLanguage(language: AppLanguage): void {

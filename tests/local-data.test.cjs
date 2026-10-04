@@ -12,6 +12,7 @@ const { QueryClient, QueryObserver, onlineManager } = require('@tanstack/react-q
 // Run the production repositories against real SQLite without an Expo device.
 // Only the native platform/UUID APIs are adapted for Node.
 const sourceCache = new Map();
+const storedPreferences = new Map();
 function loadSource(relativePath) {
   const filename = path.resolve(__dirname, '..', relativePath);
   if (sourceCache.has(filename)) return sourceCache.get(filename).exports;
@@ -24,7 +25,23 @@ function loadSource(relativePath) {
   const load = (name) => {
     if (name === 'react-native') return { Platform: { OS: 'android' } };
     if (name === 'expo-crypto') return { randomUUID };
-    if (name.startsWith('@/')) return loadSource(`src/${name.slice(2)}.ts`);
+    if (name === 'expo-sqlite/kv-store')
+      return {
+        __esModule: true,
+        default: {
+          getItemSync: (key) => storedPreferences.get(key) ?? null,
+          getItemAsync: async (key) => storedPreferences.get(key) ?? null,
+          setItemSync: (key, value) => storedPreferences.set(key, value),
+        },
+      };
+    if (name.startsWith('@/')) {
+      const base = `src/${name.slice(2)}`;
+      return loadSource(
+        fs.existsSync(path.resolve(__dirname, '..', `${base}.ts`))
+          ? `${base}.ts`
+          : `${base}/index.ts`,
+      );
+    }
     return require(name);
   };
   vm.runInThisContext(`(function(require, module, exports) {${compiled}\n})`, { filename })(
@@ -100,7 +117,7 @@ function setup(t) {
     sql.close();
     onlineManager.setOnline(true);
   });
-  return { client, routines, workouts, exercises, observe, notifications };
+  return { client, routines, workouts, exercises, observe, notifications, sql };
 }
 
 test('all routine writes update shared lists/details without returning to initial loading', async (t) => {
@@ -214,18 +231,30 @@ test('custom exercises can be created, edited and removed while recorded workout
   const { exercises, routines, workouts, observe } = setup(t);
   onlineManager.setOnline(false);
   const catalog = await observe(localKeys.exercises(), () => exercises.findAll());
-  const custom = await exercises.create({ name: 'Sentadilla pausa', muscleGroup: 'Quadriceps', equipment: 'Barra', instructions: 'Pausa dos segundos.' });
+  const custom = await exercises.create({
+    name: 'Sentadilla pausa',
+    muscleGroup: 'Quadriceps',
+    equipment: 'Barra',
+    instructions: 'Pausa dos segundos.',
+  });
   assert.equal(catalog.data().length, 3);
   const routine = await routines.create({ name: 'Piernas' });
   await routines.addExercise(routine.id, { exerciseId: custom.id });
-  const plan = await observe(localKeys.routine(routine.id), () => routines.findWithExercises(routine.id));
+  const plan = await observe(localKeys.routine(routine.id), () =>
+    routines.findWithExercises(routine.id),
+  );
   const plans = await observe(localKeys.routineList, () => routines.list());
   const session = await workouts.startFromRoutine(routine.id);
   const detail = await observe(localKeys.workout(session.id), () => workouts.findById(session.id));
   const set = await workouts.addSet(detail.data().exercises[0].id);
   await workouts.updateSet(set.id, { weight: 60, repetitions: 8, completed: true });
   await workouts.finishSession(session.id);
-  await exercises.update(custom.id, { name: 'Sentadilla pausada', muscleGroup: 'Quadriceps', equipment: 'Barra', instructions: '' });
+  await exercises.update(custom.id, {
+    name: 'Sentadilla pausada',
+    muscleGroup: 'Quadriceps',
+    equipment: 'Barra',
+    instructions: '',
+  });
   assert.equal(plan.data().exercises[0].exercise.name, 'Sentadilla pausada');
   assert.equal(detail.data().exercises[0].exercise.name, 'Sentadilla pausada');
   await exercises.delete(custom.id);
@@ -236,7 +265,15 @@ test('custom exercises can be created, edited and removed while recorded workout
   assert.ok((await exercises.findById(custom.id, true)).deletedAt);
   assert.equal(detail.data().exercises[0].sets[0].weight, 60);
   assert.equal((await exercises.findLastPerformance(custom.id))[0].weight, 60);
-  await assert.rejects(exercises.update(custom.id, { name: 'Borrado', muscleGroup: 'Core', equipment: '', instructions: '' }), /disponible/);
+  await assert.rejects(
+    exercises.update(custom.id, {
+      name: 'Borrado',
+      muscleGroup: 'Core',
+      equipment: '',
+      instructions: '',
+    }),
+    /disponible/,
+  );
   t.mock.method(console, 'error', () => {});
   await assert.rejects(routines.addExercise(routine.id, { exerciseId: custom.id }), /disponibles/);
 });
@@ -263,7 +300,9 @@ test('session and workout-exercise deletion update history, active data and prev
   const { exercises, workouts, observe } = setup(t);
   const active = await observe(localKeys.activeWorkout, () => workouts.findActive());
   const history = await observe(localKeys.history, () => workouts.listHistory());
-  const performance = await observe(localKeys.performance('squat'), () => exercises.findLastPerformance('squat'));
+  const performance = await observe(localKeys.performance('squat'), () =>
+    exercises.findLastPerformance('squat'),
+  );
   const session = await workouts.startEmpty();
   const exercise = await workouts.addExerciseToSession(session.id, 'squat');
   await workouts.addSet(exercise.id);
@@ -285,7 +324,9 @@ test('session and workout-exercise deletion update history, active data and prev
 
 test('invalid exercise input never writes or publishes changes', async (t) => {
   const { exercises, notifications } = setup(t);
-  await assert.rejects(exercises.create({ name: ' ', muscleGroup: '', equipment: '', instructions: '' }));
+  await assert.rejects(
+    exercises.create({ name: ' ', muscleGroup: '', equipment: '', instructions: '' }),
+  );
   assert.equal((await exercises.findAll()).length, 2);
   assert.equal(notifications.length, 0);
 });
@@ -294,7 +335,13 @@ test('dialogs queue messages without executing destructive callbacks on open or 
   const { dialogs, useDialogStore } = loadSource('src/store/dialogStore.ts');
   useDialogStore.setState({ queue: [] });
   let called = false;
-  dialogs.confirm({ title: 'Eliminar', message: 'Confirmar', onConfirm: () => { called = true; } });
+  dialogs.confirm({
+    title: 'Eliminar',
+    message: 'Confirmar',
+    onConfirm: () => {
+      called = true;
+    },
+  });
   dialogs.alert('Error', 'No se guardó');
   const [first, second] = useDialogStore.getState().queue;
   assert.equal(called, false);
@@ -303,4 +350,122 @@ test('dialogs queue messages without executing destructive callbacks on open or 
   assert.equal(useDialogStore.getState().queue[0].id, second.id);
   useDialogStore.getState().dismiss(second.id);
   assert.equal(useDialogStore.getState().queue.length, 0);
+});
+
+test('clearing all history deletes more than one page and refreshes performance while preserving active work and plans', async (t) => {
+  const { routines, workouts, exercises, observe, sql } = setup(t);
+  const routine = await routines.create({ name: 'Keep this plan' });
+  await routines.addExercise(routine.id, { exerciseId: 'squat' });
+  let finishedId;
+  for (let index = 0; index < 35; index++) {
+    const session = await workouts.startFromRoutine(routine.id);
+    const detail = await workouts.findById(session.id);
+    const set = await workouts.addSet(detail.exercises[0].id);
+    await workouts.updateSet(set.id, { weight: 80, repetitions: 8, completed: true });
+    await workouts.finishSession(session.id);
+    finishedId = session.id;
+  }
+  const active = await workouts.startFromRoutine(routine.id);
+  const activeDetail = await workouts.findById(active.id);
+  await workouts.addSet(activeDetail.exercises[0].id);
+  const history = await observe(localKeys.history, () => workouts.listHistory());
+  const performance = await observe(localKeys.performance('squat'), () =>
+    exercises.findLastPerformance('squat'),
+  );
+  const detail = await observe(localKeys.workout(finishedId), () => workouts.findById(finishedId));
+  assert.equal(history.data().length, 30);
+  assert.equal(performance.data().length, 1);
+  onlineManager.setOnline(false);
+  await workouts.clearHistory();
+  assert.deepEqual(history.data(), []);
+  assert.deepEqual(performance.data(), []);
+  assert.equal(detail.data(), null);
+  assert.equal((await workouts.findActive()).id, active.id);
+  assert.equal((await workouts.findActive()).exercises[0].sets.length, 1);
+  assert.equal((await routines.findWithExercises(routine.id)).exercises.length, 1);
+  assert.equal((await exercises.findAll()).length, 2);
+  for (const table of ['workout_sessions', 'workout_exercises', 'workout_sets']) {
+    assert.equal(sql.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count, 1);
+  }
+  await workouts.clearHistory();
+  assert.equal((await workouts.findActive()).id, active.id);
+});
+
+test('history clearing rolls back all child deletions when any delete fails', async (t) => {
+  const { workouts, sql, notifications } = setup(t);
+  const session = await workouts.startEmpty();
+  const exercise = await workouts.addExerciseToSession(session.id, 'squat');
+  await workouts.addSet(exercise.id);
+  await workouts.finishSession(session.id);
+  sql.exec(`CREATE TRIGGER block_history_delete BEFORE DELETE ON workout_sessions
+    BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;`);
+  const before = notifications.length;
+  await assert.rejects(workouts.clearHistory(), /simulated failure/);
+  assert.equal(notifications.length, before);
+  assert.equal((await workouts.findById(session.id)).exercises[0].sets.length, 1);
+});
+
+test('preferences persist and notify subscribers immediately without touching stored workouts', async () => {
+  const { usePreferencesStore } = loadSource('src/store/preferencesStore.ts');
+  const { preferences } = loadSource('src/services/preferences.ts');
+  let notifications = 0;
+  const unsubscribe = usePreferencesStore.subscribe(() => notifications++);
+  usePreferencesStore.getState().setLanguage('en');
+  usePreferencesStore.getState().setTheme('light');
+  usePreferencesStore.getState().setUnit('lb');
+  assert.equal(preferences.getAppLanguage(), 'en');
+  assert.equal(preferences.getThemePreference(), 'light');
+  assert.equal(preferences.getWeightUnit(), 'lb');
+  assert.equal(notifications, 3);
+  unsubscribe();
+  usePreferencesStore.setState({ unit: 'kg', theme: 'system', language: 'es', hydrated: false });
+  await usePreferencesStore.getState().hydrate();
+  assert.equal(usePreferencesStore.getState().language, 'en');
+  assert.equal(usePreferencesStore.getState().theme, 'light');
+  assert.equal(usePreferencesStore.getState().unit, 'lb');
+  usePreferencesStore.getState().setLanguage('es');
+  usePreferencesStore.getState().setTheme('system');
+  usePreferencesStore.getState().setUnit('kg');
+});
+
+test('weights convert in both directions with localized formatting and no accumulated rounding', () => {
+  const { toStoredWeight, toDisplayWeight, weightInput, formatWeight } =
+    loadSource('src/utils/weight.ts');
+  assert.ok(Math.abs(toDisplayWeight(100, 'lb') - 220.46226218487757) < 1e-10);
+  assert.ok(Math.abs(toStoredWeight(220.46226218487757, 'lb') - 100) < 1e-10);
+  assert.equal(toStoredWeight(80, 'kg'), 80);
+  assert.equal(weightInput(null, 'lb'), '');
+  assert.equal(weightInput(0, 'lb'), '0');
+  assert.equal(weightInput(100, 'lb'), '220.46');
+  assert.equal(formatWeight(100, 'lb', 'en'), '220.46');
+  assert.equal(formatWeight(100, 'lb', 'es'), '220,46');
+  let value = 67.25;
+  for (let index = 0; index < 100; index++)
+    value = toStoredWeight(toDisplayWeight(value, 'lb'), 'lb');
+  assert.ok(Math.abs(value - 67.25) < 1e-10);
+});
+
+test('i18n translates messages, interpolation, dates and built-ins without changing custom exercise text', () => {
+  const { translate } = loadSource('src/i18n/index.ts');
+  const { exerciseName, exerciseInstructions } = loadSource('src/i18n/exercises.ts');
+  const { exerciseSeed } = loadSource('src/database/seed/exercises.ts');
+  const { usePreferencesStore } = loadSource('src/store/preferencesStore.ts');
+  const { formatDateTime } = loadSource('src/utils/date.ts');
+  assert.equal(translate('Limpiar historial', 'en'), 'Clear history');
+  assert.equal(translate('Limpiar historial', 'es'), 'Limpiar historial');
+  assert.equal(translate('Peso ({{unit}})', 'en', { unit: 'lb' }), 'Weight (lb)');
+  assert.equal(translate('Ver {{name}}', 'en', { name: '$& <name>' }), 'View $& <name>');
+  const spanishDate = formatDateTime('2026-01-02T12:00:00Z');
+  assert.equal(exerciseName(exerciseSeed[0]), 'Press de banca');
+  usePreferencesStore.getState().setLanguage('en');
+  assert.equal(exerciseName(exerciseSeed[0]), 'Bench Press');
+  assert.match(exerciseInstructions(exerciseSeed[0]), /^Lower the bar/);
+  assert.notEqual(formatDateTime('2026-01-02T12:00:00Z'), spanishDate);
+  assert.equal(
+    exerciseInstructions({ ...exerciseSeed[0], instructions: 'Mis instrucciones' }),
+    'Mis instrucciones',
+  );
+  usePreferencesStore.getState().setLanguage('es');
+  assert.equal(exerciseName({ ...exerciseSeed[0], name: 'My custom name' }), 'My custom name');
+  assert.equal(exerciseName({ ...exerciseSeed[0], id: 'custom' }), 'Bench Press');
 });
