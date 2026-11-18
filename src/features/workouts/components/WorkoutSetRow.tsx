@@ -14,12 +14,13 @@ import { dialogs } from '@/store/dialogStore';
 import { getErrorMessage } from '@/utils/errors';
 
 interface WorkoutSetRowProps {
+  timed: boolean;
   set: WorkoutSet;
   onDelete: (setId: string) => Promise<void>;
   onUpdate: (setId: string, input: UpdateWorkoutSetInput) => Promise<void>;
 }
 
-export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
+export function WorkoutSetRow({ set, timed, onDelete, onUpdate }: WorkoutSetRowProps) {
   const { t } = useTranslation();
   const { colors, styles } = useThemedStyles(createStyles);
   const { unit } = useWeight();
@@ -34,10 +35,29 @@ export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
         : weightInput(draftValue === null ? null : toStoredWeight(draftValue, draft.unit), unit);
   const [repetitions, setRepetitions] = useState(set.repetitions?.toString() ?? '');
   const [saving, setSaving] = useState(false);
+  const [minutes, setMinutes] = useState(
+    set.durationSeconds === null ? '' : String(set.durationSeconds / 60),
+  );
 
   async function save(completed = set.completed) {
     setSaving(true);
     try {
+      if (timed) {
+        const value = Number(minutes.trim());
+        if (
+          minutes.trim() &&
+          (!Number.isSafeInteger(value * 60) || !Number.isInteger(value) || value <= 0)
+        ) {
+          throw new Error(t('Ingresa los minutos como un número entero positivo.'));
+        }
+        await onUpdate(set.id, {
+          completed,
+          weight: null,
+          repetitions: null,
+          durationSeconds: minutes.trim() ? value * 60 : null,
+        });
+        return;
+      }
       const input = parseSetInput(draft?.text ?? '', repetitions, completed);
       input.weight =
         draft === null
@@ -61,30 +81,47 @@ export function WorkoutSetRow({ set, onDelete, onUpdate }: WorkoutSetRowProps) {
   return (
     <View style={[styles.row, set.completed && styles.completedRow]}>
       <Text style={styles.number}>{set.setNumber}</Text>
-      <TextInput
-        editable={!saving}
-        keyboardType="decimal-pad"
-        onBlur={() => save()}
-        onChangeText={(text) => setDraft({ text, unit })}
-        accessibilityLabel={t('Peso ({{unit}})', { unit })}
-        placeholder={unit}
-        placeholderTextColor={colors.textMuted}
-        selectionColor={colors.primary}
-        style={styles.input}
-        value={weight}
-      />
-      <TextInput
-        editable={!saving}
-        keyboardType="number-pad"
-        onBlur={() => save()}
-        onChangeText={setRepetitions}
-        placeholder="reps"
-        accessibilityLabel={t('Reps')}
-        placeholderTextColor={colors.textMuted}
-        selectionColor={colors.primary}
-        style={styles.input}
-        value={repetitions}
-      />
+      {timed ? (
+        <TextInput
+          editable={!saving}
+          keyboardType="number-pad"
+          accessibilityLabel={t('Minutos')}
+          placeholder="min"
+          placeholderTextColor={colors.textMuted}
+          selectionColor={colors.primary}
+          style={styles.input}
+          value={minutes}
+          onChangeText={setMinutes}
+          onBlur={() => save()}
+        />
+      ) : (
+        <>
+          <TextInput
+            editable={!saving}
+            keyboardType="decimal-pad"
+            onBlur={() => save()}
+            onChangeText={(text) => setDraft({ text, unit })}
+            accessibilityLabel={t('Peso ({{unit}})', { unit })}
+            placeholder={unit}
+            placeholderTextColor={colors.textMuted}
+            selectionColor={colors.primary}
+            style={styles.input}
+            value={weight}
+          />
+          <TextInput
+            editable={!saving}
+            keyboardType="number-pad"
+            onBlur={() => save()}
+            onChangeText={setRepetitions}
+            placeholder="reps"
+            accessibilityLabel={t('Reps')}
+            placeholderTextColor={colors.textMuted}
+            selectionColor={colors.primary}
+            style={styles.input}
+            value={repetitions}
+          />
+        </>
+      )}
       <IconButton
         accessibilityLabel={
           set.completed ? t('Marcar serie incompleta') : t('Marcar serie completa')

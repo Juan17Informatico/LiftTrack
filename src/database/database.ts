@@ -58,7 +58,8 @@ async function applyPendingMigrations(db: SQLiteDatabase): Promise<void> {
 
 async function seedInitialExercises(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<CountRow>(
-    'SELECT COUNT(*) AS count FROM exercises WHERE deleted_at IS NULL',
+    `SELECT COUNT(*) AS count FROM exercises WHERE id IN (${exerciseSeed.map(() => '?').join(', ')})`,
+    exerciseSeed.map((exercise) => exercise.id),
   );
 
   if ((row?.count ?? 0) >= exerciseSeed.length) {

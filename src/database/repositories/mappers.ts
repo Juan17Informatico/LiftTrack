@@ -98,6 +98,7 @@ export function mapRoutineExerciseRow(row: RoutineExerciseRow): RoutineExercise 
 
 export function mapWorkoutSessionRow(row: WorkoutSessionRow): WorkoutSession {
   return {
+    baseRoutineId: row.base_routine_id,
     id: row.id,
     routineId: row.routine_id,
     name: row.name,

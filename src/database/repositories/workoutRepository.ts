@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { DataChangeListener } from '@/database/localData';
+import { baseRoutines } from '@/features/routines/baseRoutines';
+import { translateMessage } from '@/i18n';
 
 import {
   mapWorkoutExerciseRow,
@@ -27,6 +29,7 @@ import { nowUtc } from '@/utils/date';
 import { createId } from '@/utils/uuid';
 
 export interface UpdateWorkoutSetInput {
+  durationSeconds?: number | null;
   weight: number | null;
   repetitions: number | null;
   completed: boolean;
@@ -232,6 +235,58 @@ export class WorkoutRepository {
     }
   }
 
+  async startFromBaseRoutine(guideId: string): Promise<string> {
+    const guide = baseRoutines.find((item) => item.id === guideId);
+    if (!guide) throw new Error('Rutina no encontrada');
+    const id = createId();
+    const now = nowUtc();
+    await withWriteTransaction(this.db, async (tx) => {
+      const active = await tx.getFirstAsync(
+        'SELECT id FROM workout_sessions WHERE finished_at IS NULL AND deleted_at IS NULL LIMIT 1',
+      );
+      if (active) throw new Error('Ya tienes un entrenamiento en curso.');
+      await tx.runAsync(
+        'INSERT INTO workout_sessions (id, base_routine_id, name, started_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        id,
+        guide.id,
+        translateMessage(guide.name),
+        now,
+        now,
+        now,
+      );
+      let included = 0;
+      for (const [index, step] of guide.steps.entries()) {
+        const exerciseId = createId();
+        const result = await tx.runAsync(
+          `INSERT INTO workout_exercises (id, workout_session_id, exercise_id, sort_order, created_at, updated_at)
+           SELECT ?, ?, id, ?, ?, ? FROM exercises WHERE id = ? AND deleted_at IS NULL`,
+          exerciseId,
+          id,
+          index,
+          now,
+          now,
+          step.exerciseId,
+        );
+        if (!result.changes) continue;
+        included++;
+        const sets = 'sets' in step ? step.sets : 1;
+        for (let number = 1; number <= sets; number++) {
+          await tx.runAsync(
+            'INSERT INTO workout_sets (id, workout_exercise_id, set_number, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+            createId(),
+            exerciseId,
+            number,
+            now,
+            now,
+          );
+        }
+      }
+      if (!included) throw new Error('No quedan ejercicios de esta guía en tu catálogo.');
+    });
+    await this.onChange?.();
+    return id;
+  }
+
   async startEmpty(name = 'Entrenamiento libre'): Promise<WorkoutSession> {
     try {
       const id = createId();
@@ -387,12 +442,15 @@ export class WorkoutRepository {
           UPDATE workout_sets
           SET weight = ?,
               repetitions = ?,
+              duration_seconds = CASE WHEN ? THEN ? ELSE duration_seconds END,
               completed = ?,
               updated_at = ?
           WHERE id = ? AND deleted_at IS NULL
         `,
         input.weight,
         input.repetitions,
+        input.durationSeconds !== undefined ? 1 : 0,
+        input.durationSeconds ?? null,
         input.completed ? 1 : 0,
         nowUtc(),
         id,

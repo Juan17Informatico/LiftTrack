@@ -14,7 +14,7 @@ interface WorkoutSessionSummaryProps {
 
 export function WorkoutSessionSummary({ session }: WorkoutSessionSummaryProps) {
   const { t } = useTranslation();
-  const { unit, format } = useWeight();
+  const { formatSet } = useWeight();
   const { styles } = useThemedStyles(createStyles);
   return (
     <View style={styles.wrapper}>
@@ -32,7 +32,7 @@ export function WorkoutSessionSummary({ session }: WorkoutSessionSummaryProps) {
                 {t('Serie')} {set.setNumber}
               </Text>
               <Text style={styles.setValue}>
-                {format(set.weight)} {unit} × {set.repetitions ?? '-'}
+                {formatSet(workoutExercise.exerciseId, set)}
               </Text>
               <Text style={set.completed ? styles.done : styles.muted}>
                 {set.completed ? t('Completada') : t('Abierta')}

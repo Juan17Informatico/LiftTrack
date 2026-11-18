@@ -23,6 +23,8 @@ function loadSource(relativePath) {
     fileName: filename,
   }).outputText;
   const load = (name) => {
+    if (name.startsWith('./'))
+      return loadSource(path.resolve(path.dirname(filename), name + '.ts'));
     if (name === 'react-native') return { Platform: { OS: 'android' } };
     if (name === 'expo-crypto') return { randomUUID };
     if (name === 'expo-sqlite/kv-store')
@@ -57,11 +59,15 @@ const { RoutineRepository } = loadSource('src/database/repositories/routineRepos
 const { WorkoutRepository } = loadSource('src/database/repositories/workoutRepository.ts');
 const { ExerciseRepository } = loadSource('src/database/repositories/exerciseRepository.ts');
 const { initialSchemaMigration } = loadSource('src/database/migrations/001_initial_schema.ts');
+const { baseRoutinesMigration } = loadSource('src/database/migrations/003_base_routines.ts');
+const { baseRoutines } = loadSource('src/features/routines/baseRoutines.ts');
+const { exerciseSeed, walkingExerciseId } = loadSource('src/database/seed/exercises.ts');
 
 function setup(t) {
   const sql = new DatabaseSync(':memory:');
   sql.exec('PRAGMA foreign_keys = ON');
   sql.exec(initialSchemaMigration.up);
+  sql.exec(baseRoutinesMigration.up);
   let inTransaction = false;
   const db = {
     runAsync: async (query, ...args) => sql.prepare(query).run(...args.flat()),
@@ -119,6 +125,103 @@ function setup(t) {
   });
   return { client, routines, workouts, exercises, observe, notifications, sql };
 }
+
+test('a catalog upgrade adds walking even with custom exercises and preserves edits and deletions', async (t) => {
+  const { initializeDatabase } = loadSource('src/database/database.ts');
+  const sql = new DatabaseSync(':memory:');
+  t.after(() => sql.close());
+  const db = {
+    execAsync: async (query) => sql.exec(query),
+    runAsync: async (query, ...args) => sql.prepare(query).run(...args.flat()),
+    getFirstAsync: async (query, ...args) => sql.prepare(query).get(...args.flat()),
+    getAllAsync: async (query, ...args) => sql.prepare(query).all(...args.flat()),
+    withTransactionAsync: async (task) => {
+      sql.exec('BEGIN');
+      try {
+        await task();
+        sql.exec('COMMIT');
+      } catch (err) {
+        sql.exec('ROLLBACK');
+        throw err;
+      }
+    },
+  };
+  sql.exec(initialSchemaMigration.up);
+  sql.exec(`CREATE TABLE migrations (id TEXT PRIMARY KEY, name TEXT, run_at TEXT);
+    INSERT INTO migrations (id) VALUES ('001'), ('002');
+    INSERT INTO workout_sessions (id, name, started_at, created_at, updated_at)
+      VALUES ('old', 'Entrenamiento', 'now', 'now', 'now');`);
+  const insert = sql.prepare(`INSERT INTO exercises (id, name, muscle_group, created_at, updated_at)
+    VALUES (?, ?, 'Custom', 'now', 'now')`);
+  for (const item of exerciseSeed.filter((item) => item.id !== walkingExerciseId)) {
+    insert.run(item.id, 'Edited');
+  }
+  for (const id of ['custom1', 'custom2']) insert.run(id, id);
+  sql.prepare("UPDATE exercises SET deleted_at = 'deleted' WHERE id = ?").run(exerciseSeed[0].id);
+  await initializeDatabase(db);
+  await initializeDatabase(db);
+  assert.equal(
+    sql.prepare('SELECT name FROM exercises WHERE id = ?').get(walkingExerciseId).name,
+    'Brisk Walk',
+  );
+  assert.equal(
+    sql.prepare('SELECT deleted_at FROM exercises WHERE id = ?').get(exerciseSeed[0].id).deleted_at,
+    'deleted',
+  );
+  assert.equal(
+    sql.prepare('SELECT name FROM exercises WHERE id = ?').get(exerciseSeed[1].id).name,
+    'Edited',
+  );
+  assert.equal(
+    sql.prepare("SELECT base_routine_id FROM workout_sessions WHERE id = 'old'").get()
+      .base_routine_id,
+    null,
+  );
+});
+
+test('every starter guide builds an ordered offline session with pending sets and no personal routine', async (t) => {
+  const { routines, workouts, exercises, sql } = setup(t);
+  onlineManager.setOnline(false);
+  const insert = sql.prepare(
+    'INSERT INTO exercises (id, name, muscle_group, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+  );
+  for (const item of exerciseSeed) insert.run(item.id, item.name, item.muscleGroup, 'now', 'now');
+  for (const guide of baseRoutines) {
+    const id = await workouts.startFromBaseRoutine(guide.id);
+    const session = await workouts.findActive();
+    assert.equal(session.id, id);
+    assert.equal(session.baseRoutineId, guide.id);
+    assert.deepEqual(
+      session.exercises.map((item) => item.exerciseId),
+      guide.steps.map((step) => step.exerciseId),
+    );
+    for (const [i, item] of session.exercises.entries()) {
+      assert.equal(item.sets.length, guide.steps[i].sets ?? 1);
+      assert.ok(
+        item.sets.every(
+          (set) => !set.completed && set.repetitions === null && set.durationSeconds === null,
+        ),
+      );
+    }
+    if (guide.id === 'cardio') {
+      const set = session.exercises[0].sets[0];
+      await workouts.updateSet(set.id, {
+        weight: null,
+        repetitions: null,
+        completed: true,
+        durationSeconds: 1080,
+      });
+    }
+    await assert.rejects(workouts.startFromBaseRoutine(guide.id), /en curso/);
+    await workouts.finishSession(id);
+  }
+  assert.equal((await routines.list()).length, 0);
+  assert.equal((await workouts.listHistory()).length, baseRoutines.length);
+  assert.equal((await exercises.findLastPerformance(walkingExerciseId))[0].durationSeconds, 1080);
+  await exercises.delete(walkingExerciseId);
+  await assert.rejects(workouts.startFromBaseRoutine('cardio'), /No quedan ejercicios/);
+  assert.equal(await workouts.findActive(), null);
+});
 
 test('all routine writes update shared lists/details without returning to initial loading', async (t) => {
   const { routines, workouts, observe } = setup(t);

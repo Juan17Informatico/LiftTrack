@@ -5,6 +5,7 @@ import type { Exercise } from '@/types/domain';
 
 const seeds = new Map(exerciseSeed.map((exercise) => [exercise.id, exercise]));
 const spanishNames: Record<string, string> = {
+  'Brisk Walk': 'Caminata rápida',
   'Bench Press': 'Press de banca',
   'Incline Dumbbell Press': 'Press inclinado con mancuernas',
   'Chest Press Machine': 'Press de pecho en máquina',

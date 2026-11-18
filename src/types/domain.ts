@@ -46,6 +46,7 @@ export interface RoutineWithExercises extends Routine {
 }
 
 export interface WorkoutSession {
+  baseRoutineId: string | null;
   id: string;
   routineId: string | null;
   name: string;
@@ -96,6 +97,7 @@ export interface WorkoutHistoryItem extends WorkoutSession {
 }
 
 export interface PreviousExerciseSet {
+  durationSeconds: number | null;
   setNumber: number;
   weight: number | null;
   repetitions: number | null;

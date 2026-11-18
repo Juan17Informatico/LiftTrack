@@ -115,6 +115,7 @@ export class ExerciseRepository {
             workout_sets.set_number,
             workout_sets.weight,
             workout_sets.repetitions,
+            workout_sets.duration_seconds,
             workout_sessions.started_at AS performed_at
           FROM workout_sets
           INNER JOIN workout_exercises
@@ -154,6 +155,7 @@ export class ExerciseRepository {
         weight: row.weight,
         repetitions: row.repetitions,
         performedAt: row.performed_at,
+        durationSeconds: row.duration_seconds,
       }));
     } catch (error) {
       console.error('ExerciseRepository.findLastPerformance failed', error);

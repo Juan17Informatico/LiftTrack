@@ -24,7 +24,7 @@ import {
 
 export default function ExerciseDetailScreen() {
   const { t } = useTranslation();
-  const { unit, format } = useWeight();
+  const { formatSet } = useWeight();
   const { colors, styles } = useThemedStyles(createStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { exercise, previousSets, loading, error } = useExerciseDetail(id);
@@ -91,7 +91,7 @@ export default function ExerciseDetailScreen() {
                   {t('Serie')} {set.setNumber}
                 </Text>
                 <Text style={styles.value}>
-                  {format(set.weight)} {unit} × {set.repetitions ?? '-'}
+                  {formatSet(exercise.id, set)}
                 </Text>
               </View>
             ))}

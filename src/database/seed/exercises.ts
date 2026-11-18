@@ -5,6 +5,8 @@ type ExerciseSeed = Pick<
   'id' | 'name' | 'muscleGroup' | 'secondaryMuscles' | 'equipment' | 'instructions'
 >;
 
+export const walkingExerciseId = '4be6908d-1e4a-4519-9bde-74fb07dbed5e';
+
 export const exerciseSeed: ExerciseSeed[] = [
   {
     id: '9b125adc-4eb6-477f-8e75-f7a22c76ac01',
@@ -165,5 +167,13 @@ export const exerciseSeed: ExerciseSeed[] = [
     secondaryMuscles: ['Shoulders', 'Glutes'],
     equipment: 'Bodyweight',
     instructions: 'Mantiene una linea recta de cabeza a talones mientras contraes el core.',
+  },
+  {
+    id: walkingExerciseId,
+    name: 'Brisk Walk',
+    muscleGroup: 'Cardio',
+    secondaryMuscles: [],
+    equipment: 'Bodyweight',
+    instructions: 'Camina con pasos cómodos, la mirada al frente y los brazos relajados.',
   },
 ];

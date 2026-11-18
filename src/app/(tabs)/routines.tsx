@@ -12,6 +12,7 @@ import { Screen } from '@/components/Screen';
 import { type ThemeColors, spacing } from '@/constants/theme';
 import { useThemedStyles } from '@/hooks/useTheme';
 import { useRoutines } from '@/features/routines/hooks/useRoutines';
+import { BaseRoutinePicker } from '@/features/routines/components/BaseRoutinePicker';
 import { useRepositories } from '@/hooks/useRepositories';
 import { useActiveWorkoutStore } from '@/store/activeWorkoutStore';
 import type { RoutineSummary } from '@/types/domain';
@@ -37,7 +38,7 @@ export default function RoutinesScreen() {
   return (
     <Screen
       title={t('Rutinas')}
-      subtitle={t('Crea planes reutilizables para iniciar entrenamientos offline.')}
+      subtitle={t('Elige una guía para entrenar o crea tu propia rutina.')}
       right={
         <AppButton
           label={t('Nueva')}
@@ -46,11 +47,15 @@ export default function RoutinesScreen() {
         />
       }
     >
+      <BaseRoutinePicker />
+      <Text accessibilityRole="header" style={styles.title}>
+        {t('Mis rutinas')}
+      </Text>
       {loading ? <LoadingState label={t('Cargando rutinas')} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {!loading && routines.length === 0 ? (
         <EmptyState
-          title={t('No hay rutinas')}
+          title={t('Aún no tienes rutinas propias')}
           message={t('Crea tu primera rutina y agrega ejercicios desde el catalogo local.')}
           action={
             <AppButton label={t('Crear rutina')} onPress={() => router.push('/routine/create')} />

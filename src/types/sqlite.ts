@@ -46,6 +46,7 @@ export interface RoutineExerciseRow {
 }
 
 export interface WorkoutSessionRow {
+  base_routine_id: string | null;
   id: string;
   routine_id: string | null;
   name: string;
@@ -97,6 +98,7 @@ export interface WorkoutSetRow {
 }
 
 export interface PreviousExerciseSetRow {
+  duration_seconds: number | null;
   set_number: number;
   weight: number | null;
   repetitions: number | null;
