@@ -92,12 +92,10 @@ export default function HomeScreen() {
         <LoadingState label={t('Cargando rutinas')} />
       ) : routines.length === 0 ? (
         <EmptyState
-          title={t('Aun no hay rutinas')}
-          message={t(
-            'Crea una rutina, agrega ejercicios y empieza tu primer entrenamiento registrado.',
-          )}
+          title={t('Rutinas base')}
+          message={t('Elige una guía para entrenar o crea tu propia rutina.')}
           action={
-            <AppButton label={t('Crear rutina')} onPress={() => router.push('/routine/create')} />
+            <AppButton label={t('Ir a rutinas')} onPress={() => router.push('/routines')} />
           }
         />
       ) : (

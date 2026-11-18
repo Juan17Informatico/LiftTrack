@@ -20,6 +20,8 @@ import { PreviousPerformance } from '@/features/workouts/components/PreviousPerf
 import { WorkoutSetRow } from '@/features/workouts/components/WorkoutSetRow';
 import { useActiveWorkoutSession } from '@/features/workouts/hooks/useActiveWorkoutSession';
 import { useRestTimer } from '@/hooks/useRestTimer';
+import { baseRoutines, stepTarget } from '@/features/routines/baseRoutines';
+import { walkingExerciseId } from '@/database/seed/exercises';
 import { formatDateTime, formatTimer } from '@/utils/date';
 import { getErrorMessage } from '@/utils/errors';
 import { translateMuscleGroup } from '@/utils/exerciseMetadata';
@@ -106,6 +108,7 @@ export default function ActiveWorkoutScreen() {
   }
 
   const activeExerciseIds = new Set(session.exercises.map((exercise) => exercise.exerciseId));
+  const guide = baseRoutines.find((item) => item.id === session.baseRoutineId);
   const availableExercises = exercises.filter((exercise) => !activeExerciseIds.has(exercise.id));
 
   return (
@@ -123,6 +126,9 @@ export default function ActiveWorkoutScreen() {
           <TimerReset color={colors.primary} size={28} />
         </View>
         <View style={styles.row}>
+          {guide?.steps.some((step) => 'restSeconds' in step && step.restSeconds === 60) && (
+            <AppButton label="60s" variant="secondary" onPress={() => timer.start(60)} />
+          )}
           <AppButton label="90s" onPress={() => timer.start(90)} />
           <AppButton label="2m" variant="secondary" onPress={() => timer.start(120)} />
           <AppButton
@@ -143,70 +149,82 @@ export default function ActiveWorkoutScreen() {
         />
       ) : (
         <View style={styles.stack}>
-          {session.exercises.map((workoutExercise) => (
-            <Card key={workoutExercise.id}>
-              <View style={styles.exerciseHeader}>
-                <TouchableOpacity
-                  activeOpacity={0.75}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/exercise/[id]',
-                      params: { id: workoutExercise.exerciseId },
-                    })
-                  }
-                  style={styles.flex}
-                >
-                  <Text style={styles.exerciseName}>{exerciseName(workoutExercise.exercise)}</Text>
-                  <Text style={styles.muted}>
-                    {translateMuscleGroup(workoutExercise.exercise?.muscleGroup)}
-                  </Text>
-                </TouchableOpacity>
-                <AppButton
-                  icon={<Plus color={colors.ink} size={16} />}
-                  label={t('Serie')}
-                  onPress={() => safeAddSet(workoutExercise.id)}
-                />
-                <IconButton
-                  accessibilityLabel={t('Quitar {{name}}', {
-                    name: exerciseName(workoutExercise.exercise),
-                  })}
-                  icon={<Trash2 size={18} color={colors.danger} />}
-                  onPress={() =>
-                    dialogs.confirm({
-                      title: t('¿Quitar este ejercicio?'),
-                      message: t(
-                        'Se quitará de este entrenamiento junto con sus series. Permanecerá en el catálogo.',
-                      ),
-                      confirmLabel: t('Quitar ejercicio'),
-                      onConfirm: () => workouts.removeExercise(workoutExercise.id),
-                    })
-                  }
-                />
-              </View>
-              <PreviousPerformance exerciseId={workoutExercise.exerciseId} />
-              {workoutExercise.sets.length === 0 ? (
-                <Text style={styles.muted}>{t('Aun no hay series.')}</Text>
-              ) : (
-                <View style={styles.setStack}>
-                  <View style={styles.setHeader}>
-                    <Text style={styles.setHeaderText}>#</Text>
-                    <Text style={styles.setHeaderText}>{t('Peso ({{unit}})', { unit })}</Text>
-                    <Text style={styles.setHeaderText}>{t('Reps')}</Text>
-                    <Text style={styles.setHeaderText}>{t('Listo')}</Text>
-                    <Text style={styles.setHeaderText}>{t('Borrar')}</Text>
-                  </View>
-                  {workoutExercise.sets.map((set) => (
-                    <WorkoutSetRow
-                      key={set.id}
-                      set={set}
-                      onDelete={safeDeleteSet}
-                      onUpdate={updateSet}
-                    />
-                  ))}
+          {session.exercises.map((workoutExercise) => {
+            const step = guide?.steps.find(
+              (item) => item.exerciseId === workoutExercise.exerciseId,
+            );
+            const timed = workoutExercise.exerciseId === walkingExerciseId;
+            return (
+              <Card key={workoutExercise.id}>
+                <View style={styles.exerciseHeader}>
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/exercise/[id]',
+                        params: { id: workoutExercise.exerciseId },
+                      })
+                    }
+                    style={styles.flex}
+                  >
+                    <Text style={styles.exerciseName}>
+                      {exerciseName(workoutExercise.exercise)}
+                    </Text>
+                    <Text style={styles.muted}>
+                      {translateMuscleGroup(workoutExercise.exercise?.muscleGroup)}
+                    </Text>
+                  </TouchableOpacity>
+                  <AppButton
+                    icon={<Plus color={colors.ink} size={16} />}
+                    label={t('Serie')}
+                    onPress={() => safeAddSet(workoutExercise.id)}
+                  />
+                  <IconButton
+                    accessibilityLabel={t('Quitar {{name}}', {
+                      name: exerciseName(workoutExercise.exercise),
+                    })}
+                    icon={<Trash2 size={18} color={colors.danger} />}
+                    onPress={() =>
+                      dialogs.confirm({
+                        title: t('¿Quitar este ejercicio?'),
+                        message: t(
+                          'Se quitará de este entrenamiento junto con sus series. Permanecerá en el catálogo.',
+                        ),
+                        confirmLabel: t('Quitar ejercicio'),
+                        onConfirm: () => workouts.removeExercise(workoutExercise.id),
+                      })
+                    }
+                  />
                 </View>
-              )}
-            </Card>
-          ))}
+                {step && <Text style={styles.target}>{stepTarget(step)}</Text>}
+                <PreviousPerformance exerciseId={workoutExercise.exerciseId} />
+                {workoutExercise.sets.length === 0 ? (
+                  <Text style={styles.muted}>{t('Aun no hay series.')}</Text>
+                ) : (
+                  <View style={styles.setStack}>
+                    <View style={styles.setHeader}>
+                      <Text style={styles.setHeaderText}>#</Text>
+                      <Text style={styles.setHeaderText}>
+                        {timed ? t('Minutos') : t('Peso ({{unit}})', { unit })}
+                      </Text>
+                      {!timed && <Text style={styles.setHeaderText}>{t('Reps')}</Text>}
+                      <Text style={styles.setHeaderText}>{t('Listo')}</Text>
+                      <Text style={styles.setHeaderText}>{t('Borrar')}</Text>
+                    </View>
+                    {workoutExercise.sets.map((set) => (
+                      <WorkoutSetRow
+                        key={set.id}
+                        set={set}
+                        timed={timed}
+                        onDelete={safeDeleteSet}
+                        onUpdate={updateSet}
+                      />
+                    ))}
+                  </View>
+                )}
+              </Card>
+            );
+          })}
         </View>
       )}
 
@@ -305,6 +323,7 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 17,
       fontWeight: '800',
     },
+    target: { color: colors.primary, fontSize: 14, fontWeight: '700' },
     muted: {
       color: colors.textMuted,
       fontSize: 13,

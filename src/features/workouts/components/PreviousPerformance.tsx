@@ -12,7 +12,7 @@ interface PreviousPerformanceProps {
 
 export function PreviousPerformance({ exerciseId }: PreviousPerformanceProps) {
   const { t } = useTranslation();
-  const { unit, format } = useWeight();
+  const { formatSet } = useWeight();
   const { styles } = useThemedStyles(createStyles);
   const { sets } = usePreviousPerformance(exerciseId);
 
@@ -25,7 +25,7 @@ export function PreviousPerformance({ exerciseId }: PreviousPerformanceProps) {
       <Text style={styles.label}>{t('Anterior')}</Text>
       {sets.map((set) => (
         <Text key={`${set.performedAt}-${set.setNumber}`} style={styles.muted}>
-          {format(set.weight)} {unit} × {set.repetitions ?? '-'}
+          {formatSet(exerciseId, set)}
         </Text>
       ))}
     </View>
