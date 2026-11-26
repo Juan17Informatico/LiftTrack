@@ -1,0 +1,82 @@
+name: LiftTrack CI y build Android
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lifttrack-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Validar cambios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:local-data
+      - run: node --test tests/release-version.test.mjs
+
+  android:
+    name: Compilar Android y registrar versión
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Preparar versión
+        id: plan
+        # Último commit anterior al piloto. Se usa hasta que exista el primer tag.
+        run: node scripts/release-version.mjs dcc2868ece35a113fd7b59172f73d3c64ebd682e
+      - if: steps.plan.outputs.version != ''
+        run: npm ci
+      - name: Compilar y verificar versión en EAS
+        if: steps.plan.outputs.version != ''
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          RELEASE_VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          if [[ -z "$EXPO_TOKEN" ]]; then
+            echo "::error::Configura EXPO_TOKEN para el proyecto EAS de LiftTrack."
+            exit 1
+          fi
+          npx --yes eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/lifttrack-build.json"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const [build] = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/lifttrack-build.json', 'utf8'));
+          if (build?.status !== 'FINISHED' || build.appVersion !== process.env.RELEASE_VERSION ||
+              !/^\d+$/.test(build.appBuildVersion)) {
+            throw new Error('EAS no confirmó un build finalizado con la versión planeada.');
+          }
+          console.log(`Build EAS ${build.id}, versión ${build.appVersion}, código ${build.appBuildVersion}`);
+          NODE
+      - name: Registrar GitHub Release de prueba
+        if: steps.plan.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          gh release create "v$RELEASE_VERSION" --target "$GITHUB_SHA" \
+            --title "LiftTrack $RELEASE_VERSION" --generate-notes --prerelease

@@ -164,6 +164,40 @@ npm run format
 exercises the production repository SQL, cache notifications, offline updates,
 rollbacks, and stale-read races without a device or additional test dependencies.
 
+## CI y versionado de Android
+
+Los PR a `main` ejecutan lint, TypeScript y pruebas. Activa **Validar cambios**
+como check requerido en la protección de la rama y usa squash merge con un
+título Conventional Commits que represente el cambio de mayor impacto.
+
+| Título o mensaje del commit | Versión desde `1.0.0` |
+| --- | --- |
+| `fix: corrige el registro`, `perf:` o `revert:` | `1.0.1` |
+| `feat: agrega rutinas` | `1.1.0` |
+| `feat!: cambia el formato` o un pie `BREAKING CHANGE: descripción` | `2.0.0` |
+| Solo `ci:`, `docs:` o `chore:` | Sin build |
+
+En `main`, el workflow revisa los commits desde el último tag estable
+`vX.Y.Z` y aplica el incremento más alto. Para el primer build toma como
+base el `1.0.0` del commit anterior al piloto indicado en el workflow.
+Reserva los tags `vX.Y.Z` para estos builds.
+
+El job escribe `expo.version` en su copia temporal de `app.json`. EAS usa el
+perfil `production` para incrementar el contador remoto de Android. Después
+de verificar la versión y el número de build devueltos por EAS, el job registra
+el tag y un GitHub Release de prueba. El piloto compila Android sin enviar el
+binario a Google Play.
+
+Antes del primer merge, configura el secreto de Actions `EXPO_TOKEN` con
+acceso al proyecto EAS de LiftTrack y confirma que el paquete Android ya tiene
+credenciales de firma configuradas en EAS para builds no interactivos.
+El repositorio debe permitir que el token del job cree tags y releases.
+Tras el merge, revisa el run de **LiftTrack CI y build Android**, su versión
+reportada por EAS y el tag creado. Si EAS falla, corrige la causa y reintenta
+el run. Si EAS completó el build pero falló el registro del release, verifica
+el artefacto y el tag antes de reintentar, ya que otra compilación consume
+otro número de build.
+
 ## Architecture Decisions
 
 - SQLite: training logs must persist and work offline with relational integrity.
