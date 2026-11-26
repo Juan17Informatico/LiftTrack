@@ -1,28 +1,78 @@
 // Spanish source messages are stable keys; user-authored names and notes are never translated.
 export const english = {
+  'Agregar al entrenamiento actual': 'Add to current workout',
+  'Sin ejercicios nuevos': 'No new exercises',
+  'Los ejercicios disponibles ya están en tu entrenamiento.': 'The available exercises are already in your workout.',
+  'El entrenamiento ya no está activo.': 'The workout is no longer active.',
+  'Registra tus entrenamientos y sigue tu progreso.': 'Log your workouts and track your progress.',
+  'Tu progreso': 'Your progress',
+  '{{completed}} de {{total}} ejercicios': '{{completed}} of {{total}} exercises',
+  'Agregar {{name}}': 'Add {{name}}',
+  'Ocultar descanso': 'Hide rest timer',
+  'Tomar un descanso': 'Take a rest',
+  'Agrega una serie para registrar tu progreso.': 'Add a set to track your progress.',
+  Completado: 'Completed',
+  Pendiente: 'Pending',
+  '{{count}} series completadas': '{{count}} completed sets',
+  'Revisar ejercicio': 'Review exercise',
+  'Continuar ejercicio': 'Continue exercise',
+  'Iniciar ejercicio': 'Start exercise',
+  'Ver series realizadas': 'View completed sets',
+  'Serie {{number}}': 'Set {{number}}',
+  'Aún no hay series completadas.': 'No completed sets yet.',
+  'Cerrar catálogo': 'Close catalog',
+  'Este ejercicio ya no pertenece al entrenamiento activo.':
+    'This exercise is no longer in the active workout.',
+  'Completa una serie': 'Complete a set',
+  'Marca al menos una serie como realizada antes de finalizar el ejercicio.':
+    'Mark at least one set as complete before finishing the exercise.',
+  'No se pudo actualizar el ejercicio': 'Could not update the exercise',
+  'Descanso personalizado en segundos': 'Custom rest in seconds',
+  Segundos: 'Seconds',
+  'Tiempo invalido': 'Invalid time',
+  'Ingresa entre 1 y 86400 segundos.': 'Enter between 1 and 86400 seconds.',
+  'Ejercicio completado': 'Exercise completed',
+  'Reabrir ejercicio': 'Reopen exercise',
+  'Volver al entrenamiento': 'Back to workout',
+  'Finalizar ejercicio': 'Finish exercise',
+  'Se quitaran el peso y las repeticiones de esta serie.':
+    'The weight and repetitions for this set will be removed.',
+
   'Rutinas base': 'Starter routines',
   'Mis rutinas': 'My routines',
   'Aún no tienes rutinas propias': 'No personal routines yet',
-  'Elige una guía para entrenar o crea tu propia rutina.': 'Choose a workout guide or create your own routine.',
+  'Elige una guía para entrenar o crea tu propia rutina.':
+    'Choose a workout guide or create your own routine.',
   Brazos: 'Arms',
   Piernas: 'Legs',
   'Tren superior (Upper)': 'Upper body',
   'Tren inferior (Lower)': 'Lower body',
-  'Dos ángulos de empuje con barra y mancuernas.': 'Work your chest from two angles with a barbell and dumbbells.',
-  'Alterna bíceps y tríceps con mancuernas y polea.': 'Alternate biceps and triceps work with dumbbells and a cable machine.',
-  'Trabaja cuádriceps, femorales y pantorrillas en máquinas.': 'Train your quads, hamstrings and calves using machines.',
-  'Caminata al aire libre o en cinta, con cambios de ritmo.': 'Vary your walking pace outdoors or on a treadmill.',
-  'Combina empujes y tirones para pecho, espalda y hombros.': 'Combine pushes and pulls for your chest, back and shoulders.',
-  'Combina prensa y trabajo de cadera para piernas y glúteos.': 'Combine leg presses and hip exercises for your legs and glutes.',
+  'Dos ángulos de empuje con barra y mancuernas.':
+    'Work your chest from two angles with a barbell and dumbbells.',
+  'Alterna bíceps y tríceps con mancuernas y polea.':
+    'Alternate biceps and triceps work with dumbbells and a cable machine.',
+  'Trabaja cuádriceps, femorales y pantorrillas en máquinas.':
+    'Train your quads, hamstrings and calves using machines.',
+  'Caminata al aire libre o en cinta, con cambios de ritmo.':
+    'Vary your walking pace outdoors or on a treadmill.',
+  'Combina empujes y tirones para pecho, espalda y hombros.':
+    'Combine pushes and pulls for your chest, back and shoulders.',
+  'Combina prensa y trabajo de cadera para piernas y glúteos.':
+    'Combine leg presses and hip exercises for your legs and glutes.',
   '5 min suaves · 10 min a paso vivo · 5 min suaves': '5 min easy · 10 min brisk · 5 min easy',
-  '{{sets}} series de {{reps}} reps · {{rest}} s de descanso': '{{sets}} sets of {{reps}} reps · {{rest}} s rest',
-  'Camina con pasos cómodos, la mirada al frente y los brazos relajados.': 'Walk with a comfortable stride, eyes forward and arms relaxed.',
+  '{{sets}} series de {{reps}} reps · {{rest}} s de descanso':
+    '{{sets}} sets of {{reps}} reps · {{rest}} s rest',
+  'Camina con pasos cómodos, la mirada al frente y los brazos relajados.':
+    'Walk with a comfortable stride, eyes forward and arms relaxed.',
   'Iniciar esta guía': 'Start this guide',
-  'Solo se incluyen los ejercicios disponibles en tu catálogo.': 'Only exercises available in your catalog are included.',
-  'No quedan ejercicios de esta guía en tu catálogo.': 'None of the exercises in this guide are available in your catalog.',
+  'Solo se incluyen los ejercicios disponibles en tu catálogo.':
+    'Only exercises available in your catalog are included.',
+  'No quedan ejercicios de esta guía en tu catálogo.':
+    'None of the exercises in this guide are available in your catalog.',
   'Ya tienes un entrenamiento en curso.': 'You already have a workout in progress.',
   Minutos: 'Minutes',
-  'Ingresa los minutos como un número entero positivo.': 'Enter a positive whole number of minutes.',
+  'Ingresa los minutos como un número entero positivo.':
+    'Enter a positive whole number of minutes.',
   'No se pudieron cargar las preferencias': 'Could not load preferences',
   'Intenta de nuevo. Tus datos se conservan.': 'Try again. Your data is preserved.',
   Reintentar: 'Retry',

@@ -330,6 +330,64 @@ test('a cached screen sees writes made while it was unmounted', async (t) => {
   assert.equal(reopened.data()[0].name, 'Creada desde otra pantalla');
 });
 
+test('adding routines appends only new exercises and preserves recorded sets', async (t) => {
+  const { workouts, routines, sql } = setup(t);
+  const insert = sql.prepare(
+    'INSERT INTO exercises (id, name, muscle_group, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+  );
+  for (const item of exerciseSeed) insert.run(item.id, item.name, item.muscleGroup, 'now', 'now');
+  const sessionId = await workouts.startFromBaseRoutine('chest');
+  const original = await workouts.findActive();
+  const set = original.exercises[0].sets[0];
+  await workouts.updateSet(set.id, { weight: 25, repetitions: 8, completed: true });
+  assert.equal(await workouts.addBaseRoutineToSession(sessionId, 'upper'), 3);
+  assert.equal(await workouts.addBaseRoutineToSession(sessionId, 'upper'), 0);
+  const routine = await routines.create({ name: 'Extra' });
+  await routines.addExercise(routine.id, { exerciseId: baseRoutines.find((g) => g.id === 'chest').steps[0].exerciseId });
+  await routines.addExercise(routine.id, { exerciseId: baseRoutines.find((g) => g.id === 'legs').steps[0].exerciseId });
+  assert.equal(await workouts.addRoutineToSession(sessionId, routine.id), 1);
+  const result = await workouts.findActive();
+  assert.equal(result.exercises.length, 6);
+  assert.equal(result.exercises[0].sets[0].weight, 25);
+  assert.equal(result.exercises[0].sets[0].repetitions, 8);
+  await workouts.finishSession(sessionId);
+  await assert.rejects(workouts.addBaseRoutineToSession(sessionId, 'legs'), /no está activo/);
+  await assert.rejects(workouts.addRoutineToSession(sessionId, routine.id), /no está activo/);
+});
+
+test('starting another workout preserves the existing active session', async (t) => {
+  const { workouts, routines, notifications, sql } = setup(t);
+  const routine = await routines.create({ name: 'Piernas' });
+  const active = await workouts.startEmpty();
+  const notificationsBefore = notifications.length;
+  t.mock.method(console, 'error', () => {});
+
+  await assert.rejects(workouts.startEmpty(), /en curso/);
+  await assert.rejects(workouts.startFromRoutine(routine.id), /en curso/);
+  assert.equal((await workouts.findActive()).id, active.id);
+  assert.equal(sql.prepare('SELECT COUNT(*) AS count FROM workout_sessions').get().count, 1);
+  assert.equal(notifications.length, notificationsBefore);
+
+  await workouts.finishSession(active.id);
+  const next = await workouts.startFromRoutine(routine.id);
+  assert.equal((await workouts.findActive()).id, next.id);
+});
+
+test('active lookup does not return a workout finished during its detailed read', async (t) => {
+  const { workouts, sql } = setup(t);
+  const session = await workouts.startEmpty();
+  const findById = workouts.findById.bind(workouts);
+  t.mock.method(workouts, 'findById', async (id) => {
+    sql.prepare('UPDATE workout_sessions SET finished_at = ? WHERE id = ?').run(
+      '2026-01-02T00:00:00.000Z',
+      id,
+    );
+    return findById(id);
+  });
+  assert.equal(await workouts.findActive(), null);
+  assert.equal((await workouts.listHistory())[0].id, session.id);
+});
+
 test('custom exercises can be created, edited and removed while recorded workouts survive', async (t) => {
   const { exercises, routines, workouts, observe } = setup(t);
   onlineManager.setOnline(false);

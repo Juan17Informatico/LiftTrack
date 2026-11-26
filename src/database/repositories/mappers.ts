@@ -138,6 +138,7 @@ export function mapWorkoutExerciseRow(row: WorkoutExerciseRow, sets: WorkoutSet[
 
   return {
     id: row.id,
+    completed: row.completed === 1,
     workoutSessionId: row.workout_session_id,
     exerciseId: row.exercise_id,
     sortOrder: row.sort_order,

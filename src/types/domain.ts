@@ -59,6 +59,7 @@ export interface WorkoutSession {
 }
 
 export interface WorkoutExercise {
+  completed: boolean;
   id: string;
   workoutSessionId: string;
   exerciseId: string;

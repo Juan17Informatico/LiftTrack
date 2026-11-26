@@ -20,6 +20,7 @@ import { useThemedStyles } from '@/hooks/useTheme';
 import { useExerciseCatalog } from '@/features/exercises/hooks/useExerciseCatalog';
 import { useRoutineDetail } from '@/features/routines/hooks/useRoutineDetail';
 import { useRepositories } from '@/hooks/useRepositories';
+import { useActiveWorkout } from '@/features/workouts/hooks/useActiveWorkout';
 import { useActiveWorkoutStore } from '@/store/activeWorkoutStore';
 import { routineFormSchema, type RoutineFormInput } from '@/schemas/routineSchemas';
 import { getErrorMessage } from '@/utils/errors';
@@ -32,6 +33,7 @@ export default function RoutineDetailScreen() {
   const { routine, loading, error } = useRoutineDetail(id);
   const { exercises } = useExerciseCatalog();
   const { routines, workouts } = useRepositories();
+  const { session: activeSession, loading: workoutLoading } = useActiveWorkout();
   const setActiveWorkoutId = useActiveWorkoutStore((state) => state.setActiveWorkoutId);
   const {
     control,
@@ -93,8 +95,17 @@ export default function RoutineDetailScreen() {
     }
 
     try {
-      const session = await workouts.startFromRoutine(routine.id);
-      setActiveWorkoutId(session.id);
+      if (workoutLoading) return;
+      if (activeSession) {
+        const added = await workouts.addRoutineToSession(activeSession.id, routine.id);
+        if (!added) {
+          dialogs.alert(t('Sin ejercicios nuevos'), t('Los ejercicios disponibles ya están en tu entrenamiento.'));
+          return;
+        }
+      } else {
+        const session = await workouts.startFromRoutine(routine.id);
+        setActiveWorkoutId(session.id);
+      }
       router.push('/workout/active');
     } catch (caughtError) {
       dialogs.alert(t('No se pudo iniciar el entrenamiento'), getErrorMessage(caughtError));
@@ -145,7 +156,8 @@ export default function RoutineDetailScreen() {
       right={
         <AppButton
           icon={<Play color={colors.ink} size={18} />}
-          label={t('Iniciar')}
+          label={activeSession ? t('Agregar al entrenamiento actual') : t('Iniciar')}
+          disabled={workoutLoading}
           onPress={startWorkout}
         />
       }

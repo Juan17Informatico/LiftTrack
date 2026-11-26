@@ -41,9 +41,23 @@ export class WorkoutRepository {
     private readonly onChange?: DataChangeListener,
   ) {}
 
+  async setExerciseCompleted(id: string, completed: boolean): Promise<void> {
+    await this.db.runAsync(
+      `UPDATE workout_exercises SET completed = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL
+       AND workout_session_id IN (SELECT id FROM workout_sessions WHERE finished_at IS NULL AND deleted_at IS NULL)`,
+      completed ? 1 : 0,
+      nowUtc(),
+      id,
+    );
+    await this.onChange?.();
+  }
+
   async findActive(): Promise<WorkoutSessionDetail | null> {
     try {
-      const row = await this.db.getFirstAsync<WorkoutSessionRow>(
+      // A session can finish between the lookup and the detailed read. In that
+      // case, repeat the lookup instead of publishing a finished session as active.
+      while (true) {
+        const row = await this.db.getFirstAsync<WorkoutSessionRow>(
         `
           SELECT
             workout_sessions.*,
@@ -56,9 +70,12 @@ export class WorkoutRepository {
           ORDER BY workout_sessions.started_at DESC
           LIMIT 1
         `,
-      );
+        );
 
-      return row ? this.findById(row.id) : null;
+        if (!row) return null;
+        const session = await this.findById(row.id);
+        if (session && session.finishedAt === null) return session;
+      }
     } catch (error) {
       console.error('WorkoutRepository.findActive failed', error);
       throw error;
@@ -159,6 +176,10 @@ export class WorkoutRepository {
       const timestamp = nowUtc();
 
       await withWriteTransaction(this.db, async (transaction) => {
+        const active = await transaction.getFirstAsync(
+          'SELECT id FROM workout_sessions WHERE finished_at IS NULL AND deleted_at IS NULL LIMIT 1',
+        );
+        if (active) throw new Error('Ya tienes un entrenamiento en curso.');
         const routine = await transaction.getFirstAsync<RoutineRow>(
           'SELECT * FROM routines WHERE id = ? AND deleted_at IS NULL',
           routineId,
@@ -292,17 +313,23 @@ export class WorkoutRepository {
       const id = createId();
       const timestamp = nowUtc();
 
-      await this.db.runAsync(
-        `
+      await withWriteTransaction(this.db, async (transaction) => {
+        const active = await transaction.getFirstAsync(
+          'SELECT id FROM workout_sessions WHERE finished_at IS NULL AND deleted_at IS NULL LIMIT 1',
+        );
+        if (active) throw new Error('Ya tienes un entrenamiento en curso.');
+        await transaction.runAsync(
+          `
           INSERT INTO workout_sessions (id, name, started_at, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?)
         `,
-        id,
-        name,
-        timestamp,
-        timestamp,
-        timestamp,
-      );
+          id,
+          name,
+          timestamp,
+          timestamp,
+          timestamp,
+        );
+      });
 
       const created = await this.findById(id);
       if (!created) {
@@ -315,6 +342,94 @@ export class WorkoutRepository {
       console.error('WorkoutRepository.startEmpty failed', error);
       throw error;
     }
+  }
+
+  async addBaseRoutineToSession(sessionId: string, guideId: string): Promise<number> {
+    const guide = baseRoutines.find((item) => item.id === guideId);
+    if (!guide) throw new Error('Rutina no encontrada');
+    const timestamp = nowUtc();
+    let added = 0;
+    await withWriteTransaction(this.db, async (tx) => {
+      const active = await tx.getFirstAsync<{ id: string }>(
+        'SELECT id FROM workout_sessions WHERE id = ? AND finished_at IS NULL AND deleted_at IS NULL',
+        sessionId,
+      );
+      if (!active) throw new Error('El entrenamiento ya no está activo.');
+      const existing = await tx.getAllAsync<{ exercise_id: string }>(
+        'SELECT exercise_id FROM workout_exercises WHERE workout_session_id = ? AND deleted_at IS NULL',
+        sessionId,
+      );
+      const ids = new Set(existing.map((row) => row.exercise_id));
+      const order = await tx.getFirstAsync<{ next_sort_order: number }>(
+        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM workout_exercises WHERE workout_session_id = ? AND deleted_at IS NULL',
+        sessionId,
+      );
+      let nextOrder = order?.next_sort_order ?? 0;
+      for (const step of guide.steps) {
+        if (ids.has(step.exerciseId)) continue;
+        const exerciseId = createId();
+        const result = await tx.runAsync(
+          `INSERT INTO workout_exercises (id, workout_session_id, exercise_id, sort_order, created_at, updated_at)
+           SELECT ?, ?, id, ?, ?, ? FROM exercises WHERE id = ? AND deleted_at IS NULL`,
+          exerciseId, sessionId, nextOrder, timestamp, timestamp, step.exerciseId,
+        );
+        if (!result.changes) continue;
+        ids.add(step.exerciseId);
+        nextOrder++;
+        added++;
+        const sets = 'sets' in step ? step.sets : 1;
+        for (let number = 1; number <= sets; number++) {
+          await tx.runAsync(
+            'INSERT INTO workout_sets (id, workout_exercise_id, set_number, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+            createId(), exerciseId, number, timestamp, timestamp,
+          );
+        }
+      }
+      if (added) await tx.runAsync('UPDATE workout_sessions SET updated_at = ? WHERE id = ?', timestamp, sessionId);
+    });
+    if (added) await this.onChange?.();
+    return added;
+  }
+
+  async addRoutineToSession(sessionId: string, routineId: string): Promise<number> {
+    const timestamp = nowUtc();
+    let added = 0;
+    await withWriteTransaction(this.db, async (tx) => {
+      const active = await tx.getFirstAsync<{ id: string }>(
+        'SELECT id FROM workout_sessions WHERE id = ? AND finished_at IS NULL AND deleted_at IS NULL',
+        sessionId,
+      );
+      if (!active) throw new Error('El entrenamiento ya no está activo.');
+      const routine = await tx.getFirstAsync<{ id: string }>(
+        'SELECT id FROM routines WHERE id = ? AND deleted_at IS NULL', routineId,
+      );
+      if (!routine) throw new Error('Rutina no encontrada');
+      const items = await tx.getAllAsync<{ exercise_id: string }>(
+        `SELECT re.exercise_id FROM routine_exercises re JOIN exercises e ON e.id = re.exercise_id
+         WHERE re.routine_id = ? AND re.deleted_at IS NULL AND e.deleted_at IS NULL ORDER BY re.sort_order`,
+        routineId,
+      );
+      const existing = await tx.getAllAsync<{ exercise_id: string }>(
+        'SELECT exercise_id FROM workout_exercises WHERE workout_session_id = ? AND deleted_at IS NULL', sessionId,
+      );
+      const ids = new Set(existing.map((row) => row.exercise_id));
+      const order = await tx.getFirstAsync<{ next_sort_order: number }>(
+        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM workout_exercises WHERE workout_session_id = ? AND deleted_at IS NULL', sessionId,
+      );
+      let nextOrder = order?.next_sort_order ?? 0;
+      for (const item of items) {
+        if (ids.has(item.exercise_id)) continue;
+        await tx.runAsync(
+          'INSERT INTO workout_exercises (id, workout_session_id, exercise_id, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+          createId(), sessionId, item.exercise_id, nextOrder++, timestamp, timestamp,
+        );
+        ids.add(item.exercise_id);
+        added++;
+      }
+      if (added) await tx.runAsync('UPDATE workout_sessions SET updated_at = ? WHERE id = ?', timestamp, sessionId);
+    });
+    if (added) await this.onChange?.();
+    return added;
   }
 
   async addExerciseToSession(sessionId: string, exerciseId: string): Promise<WorkoutExercise> {

@@ -65,6 +65,7 @@ export interface WorkoutHistoryRow extends WorkoutSessionRow {
 }
 
 export interface WorkoutExerciseRow {
+  completed: number;
   id: string;
   workout_session_id: string;
   exercise_id: string;

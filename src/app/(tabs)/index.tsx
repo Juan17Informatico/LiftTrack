@@ -17,7 +17,7 @@ import { useExerciseCatalog } from '@/features/exercises/hooks/useExerciseCatalo
 import { useWorkoutHistory } from '@/features/history/hooks/useWorkoutHistory';
 import { useRoutines } from '@/features/routines/hooks/useRoutines';
 import { useRepositories } from '@/hooks/useRepositories';
-import { useActiveWorkoutStore } from '@/store/activeWorkoutStore';
+import { useActiveWorkout } from '@/features/workouts/hooks/useActiveWorkout';
 import type { RoutineSummary } from '@/types/domain';
 import { formatDateTime, formatDuration } from '@/utils/date';
 import { getErrorMessage } from '@/utils/errors';
@@ -30,13 +30,11 @@ export default function HomeScreen() {
   const { exercises } = useExerciseCatalog();
   const { history } = useWorkoutHistory();
   const { workouts } = useRepositories();
-  const activeWorkoutId = useActiveWorkoutStore((state) => state.activeWorkoutId);
-  const setActiveWorkoutId = useActiveWorkoutStore((state) => state.setActiveWorkoutId);
+  const { session: activeWorkout, loading: activeLoading, error: activeError } = useActiveWorkout();
 
   async function startEmptyWorkout() {
     try {
-      const session = await workouts.startEmpty(t('Entrenamiento libre'));
-      setActiveWorkoutId(session.id);
+      await workouts.startEmpty(t('Entrenamiento libre'));
       router.push('/workout/active');
     } catch (error) {
       dialogs.alert(t('No se pudo iniciar el entrenamiento'), getErrorMessage(error));
@@ -45,8 +43,7 @@ export default function HomeScreen() {
 
   async function startRoutine(routine: RoutineSummary) {
     try {
-      const session = await workouts.startFromRoutine(routine.id);
-      setActiveWorkoutId(session.id);
+      await workouts.startFromRoutine(routine.id);
       router.push('/workout/active');
     } catch (error) {
       dialogs.alert(t('No se pudo iniciar la rutina'), getErrorMessage(error));
@@ -58,25 +55,34 @@ export default function HomeScreen() {
   return (
     <Screen
       title="LiftTrack"
-      subtitle={t('Registro de entrenamientos offline-first para sesiones enfocadas.')}
+      subtitle={t('Registra tus entrenamientos y sigue tu progreso.')}
       right={<BrandLogo />}
     >
       <Card>
-        <Text style={styles.sectionTitle}>
-          {activeWorkoutId ? t('Entrenamiento en curso') : t('Listo para entrenar')}
-        </Text>
-        <Text style={styles.muted}>
-          {activeWorkoutId
-            ? t(
-                'Tu entrenamiento activo esta guardado localmente y puedes retomarlo cuando quieras.',
-              )
-            : t('Empieza desde una rutina o abre una sesion libre.')}
-        </Text>
-        <AppButton
-          label={activeWorkoutId ? t('Retomar entrenamiento') : t('Iniciar libre')}
-          icon={<Play color={colors.ink} size={18} />}
-          onPress={() => (activeWorkoutId ? router.push('/workout/active') : startEmptyWorkout())}
-        />
+        {activeLoading ? (
+          <LoadingState label={t('Cargando entrenamiento activo')} />
+        ) : activeError ? (
+          <Text style={styles.muted}>{activeError}</Text>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>
+              {activeWorkout ? t('Entrenamiento en curso') : t('Listo para entrenar')}
+            </Text>
+            <Text style={styles.muted}>
+              {activeWorkout
+                ? t(
+                    'Tu entrenamiento activo esta guardado localmente y puedes retomarlo cuando quieras.',
+                  )
+                : t('Empieza desde una rutina o abre una sesion libre.')}
+            </Text>
+            <AppButton
+              label={activeWorkout ? t('Retomar entrenamiento') : t('Iniciar libre')}
+              disabled={activeLoading || !!activeError}
+              icon={<Play color={colors.ink} size={18} />}
+              onPress={() => (activeWorkout ? router.push('/workout/active') : startEmptyWorkout())}
+            />
+          </>
+        )}
       </Card>
 
       <View style={styles.headerRow}>
@@ -94,9 +100,7 @@ export default function HomeScreen() {
         <EmptyState
           title={t('Rutinas base')}
           message={t('Elige una guía para entrenar o crea tu propia rutina.')}
-          action={
-            <AppButton label={t('Ir a rutinas')} onPress={() => router.push('/routines')} />
-          }
+          action={<AppButton label={t('Ir a rutinas')} onPress={() => router.push('/routines')} />}
         />
       ) : (
         <View style={styles.stack}>

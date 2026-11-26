@@ -14,6 +14,7 @@ import { useThemedStyles } from '@/hooks/useTheme';
 import { useRoutines } from '@/features/routines/hooks/useRoutines';
 import { BaseRoutinePicker } from '@/features/routines/components/BaseRoutinePicker';
 import { useRepositories } from '@/hooks/useRepositories';
+import { useActiveWorkout } from '@/features/workouts/hooks/useActiveWorkout';
 import { useActiveWorkoutStore } from '@/store/activeWorkoutStore';
 import type { RoutineSummary } from '@/types/domain';
 import { getErrorMessage } from '@/utils/errors';
@@ -23,12 +24,22 @@ export default function RoutinesScreen() {
   const { colors, styles } = useThemedStyles(createStyles);
   const { routines, loading, error } = useRoutines();
   const { workouts } = useRepositories();
+  const { session: activeSession, loading: workoutLoading } = useActiveWorkout();
   const setActiveWorkoutId = useActiveWorkoutStore((state) => state.setActiveWorkoutId);
 
   async function startRoutine(routine: RoutineSummary) {
     try {
-      const session = await workouts.startFromRoutine(routine.id);
-      setActiveWorkoutId(session.id);
+      if (workoutLoading) return;
+      if (activeSession) {
+        const added = await workouts.addRoutineToSession(activeSession.id, routine.id);
+        if (!added) {
+          dialogs.alert(t('Sin ejercicios nuevos'), t('Los ejercicios disponibles ya están en tu entrenamiento.'));
+          return;
+        }
+      } else {
+        const session = await workouts.startFromRoutine(routine.id);
+        setActiveWorkoutId(session.id);
+      }
       router.push('/workout/active');
     } catch (caughtError) {
       dialogs.alert(t('No se pudo iniciar la rutina'), getErrorMessage(caughtError));
@@ -81,8 +92,8 @@ export default function RoutinesScreen() {
                     <Text style={styles.description}>{routine.description}</Text>
                   ) : null}
                 </View>
-                <TouchableOpacity onPress={() => startRoutine(routine)} style={styles.startButton}>
-                  <Play color={colors.ink} size={18} />
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={activeSession ? t('Agregar al entrenamiento actual') : t('Iniciar')} disabled={workoutLoading} onPress={() => startRoutine(routine)} style={styles.startButton}>
+                  {activeSession ? <Plus color={colors.ink} size={18} /> : <Play color={colors.ink} size={18} />}
                 </TouchableOpacity>
                 <ArrowRight color={colors.textMuted} size={20} />
               </View>

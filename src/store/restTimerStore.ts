@@ -9,6 +9,7 @@ interface RestTimerState {
   startedAtMs: number | null;
   start: (durationSeconds?: number) => void;
   pause: () => void;
+  resume: () => void;
   cancel: () => void;
   tick: () => void;
 }
@@ -35,7 +36,21 @@ export const useRestTimerStore = create<RestTimerState>((set, get) => ({
       return;
     }
 
-    set({ status: 'paused', startedAtMs: null });
+    const remainingSeconds = Math.max(
+      0,
+      state.durationSeconds - Math.floor((Date.now() - (state.startedAtMs ?? Date.now())) / 1000),
+    );
+    set({ status: remainingSeconds ? 'paused' : 'idle', remainingSeconds, startedAtMs: null });
+  },
+
+  resume: () => {
+    const state = get();
+    if (state.status === 'paused' && state.remainingSeconds > 0) {
+      set({
+        status: 'running',
+        startedAtMs: Date.now() - (state.durationSeconds - state.remainingSeconds) * 1000,
+      });
+    }
   },
 
   cancel: () =>

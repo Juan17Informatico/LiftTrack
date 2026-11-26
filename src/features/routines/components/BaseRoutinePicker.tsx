@@ -9,6 +9,7 @@ import { radius, spacing, type ThemeColors } from '@/constants/theme';
 import { useExerciseCatalog } from '@/features/exercises/hooks/useExerciseCatalog';
 import { baseRoutines, stepTarget } from '@/features/routines/baseRoutines';
 import { useRepositories } from '@/hooks/useRepositories';
+import { useActiveWorkout } from '@/features/workouts/hooks/useActiveWorkout';
 import { useThemedStyles } from '@/hooks/useTheme';
 import { useTranslation } from '@/i18n';
 import { exerciseName } from '@/i18n/exercises';
@@ -23,7 +24,8 @@ export function BaseRoutinePicker() {
   const [starting, setStarting] = useState(false);
   const { exercises, loading, error } = useExerciseCatalog();
   const { workouts } = useRepositories();
-  const activeId = useActiveWorkoutStore((state) => state.activeWorkoutId);
+  const { session, loading: workoutLoading } = useActiveWorkout();
+  const activeId = session?.id;
   const setActiveId = useActiveWorkoutStore((state) => state.setActiveWorkoutId);
   const steps = guide.steps.flatMap((step) => {
     const exercise = exercises.find((item) => item.id === step.exerciseId);
@@ -33,7 +35,13 @@ export function BaseRoutinePicker() {
   async function start() {
     setStarting(true);
     try {
-      if (!activeId) setActiveId(await workouts.startFromBaseRoutine(guide.id));
+      if (activeId) {
+        const added = await workouts.addBaseRoutineToSession(activeId, guide.id);
+        if (!added) {
+          dialogs.alert(t('Sin ejercicios nuevos'), t('Los ejercicios disponibles ya están en tu entrenamiento.'));
+          return;
+        }
+      } else setActiveId(await workouts.startFromBaseRoutine(guide.id));
       router.push('/workout/active');
     } catch (caught) {
       dialogs.alert(t('No se pudo iniciar la rutina'), t(getErrorMessage(caught)));
@@ -90,8 +98,8 @@ export function BaseRoutinePicker() {
               </Text>
             )}
             <AppButton
-              label={activeId ? t('Retomar entrenamiento') : t('Iniciar esta guía')}
-              disabled={starting || (!activeId && !steps.length)}
+              label={activeId ? t('Agregar al entrenamiento actual') : t('Iniciar esta guía')}
+              disabled={starting || workoutLoading || !steps.length}
               onPress={start}
             />
           </>
